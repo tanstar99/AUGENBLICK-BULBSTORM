@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import QRCode from "react-qr-code";
 import { DashboardLayout } from "@/layouts";
 import { useRequests } from "@/hooks";
 import { requestsService } from "@/api/services";
@@ -460,9 +461,21 @@ const RequestsPage: React.FC = () => {
                             )}
 
                             {request.status === 'approved' && (
-                              <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/5 px-4 py-2 rounded-xl border border-emerald-500/20">
-                                <CheckCircle className="w-4 h-4" />
-                                <span className="text-sm font-bold">Request Approved</span>
+                              <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/5 px-4 py-2 rounded-xl border border-emerald-500/20">
+                                  <CheckCircle className="w-4 h-4" />
+                                  <span className="text-sm font-bold">Request Approved</span>
+                                </div>
+                                <div className="bg-white p-2 flex items-center justify-center rounded-xl shadow-sm">
+                                  <QRCode 
+                                    value={JSON.stringify({
+                                      id: request._id,
+                                      material: request.material?.title || 'Unknown',
+                                      status: 'approved'
+                                    })}
+                                    size={80}
+                                  />
+                                </div>
                               </div>
                             )}
                           </div>
