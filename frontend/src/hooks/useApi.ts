@@ -12,6 +12,9 @@ import {
   getMaterials,
   getLogisticsStats,
   getCategories,
+  getLeaderboard,
+  getAIConversations,
+  getAIConversation,
   type MaterialFilters,
   type RequestFilters,
   type TransactionFilters,
@@ -95,31 +98,48 @@ export function useDashboardAnalytics(period: string = "month") {
 interface ImpactData {
   summary: {
     totalTransactions: number;
-    wasteDiverted: { kg: number; tons: number };
-    co2Saved: { kg: number; tons: number };
-    waterSaved: { liters: number };
-    energySaved: { kwh: number };
+    totalListings: number;
+    wasteDivertedKg: number;
+    co2SavedKg: number;
+    landfillDivertedKg: number;
   };
   ranking: {
     position: number;
-    total: number;
+    totalUsers: number;
     percentile: number;
   };
   monthlyBreakdown: Array<{
-    month: string;
+    year: number;
+    month: number;
     transactions: number;
-    wasteDiverted: number;
-    co2Saved: number;
+    wasteDivertedKg: number;
+    co2SavedKg: number;
   }>;
-  equivalents: {
-    treesPlanted: number;
-    carsOffRoad: number;
-    flightsAvoided: number;
-  };
 }
 
 export function useUserImpact() {
   return useFetch<ImpactData>(() => getUserImpact(), []);
+}
+
+interface LeaderboardData {
+  leaderboard: Array<{
+    rank: number;
+    id: string;
+    name: string;
+    avatar?: string;
+    role?: string;
+    metrics: {
+      co2SavedKg: number;
+      wasteDivertedKg: number;
+      totalTransactions: number;
+    };
+  }>;
+  userPosition: number | null;
+  totalParticipants: number;
+}
+
+export function useLeaderboard(metric: string = "co2Saved", limit: number = 10) {
+  return useFetch<LeaderboardData>(() => getLeaderboard(metric, limit), [metric, limit]);
 }
 
 // =============================================
@@ -282,6 +302,7 @@ interface TransactionsData {
       weightKg: number;
       co2SavedKg: number;
     };
+    userRole?: "supplier" | "receiver";
     scheduledDate?: string;
     completedAt?: string;
     createdAt: string;
@@ -299,31 +320,25 @@ export function useTransactions(filters: TransactionFilters = {}) {
 }
 
 interface TransactionStatsData {
-  overview: {
+  overall: {
     total: number;
     completed: number;
-    inProgress: number;
-    pending: number;
-    cancelled: number;
+    completionRate: number;
   };
+  byStatus: Record<string, number>;
   asSupplier: {
-    total: number;
+    count: number;
     completed: number;
   };
   asReceiver: {
-    total: number;
+    count: number;
     completed: number;
   };
   impact: {
-    totalWeightKg: number;
-    totalCO2SavedKg: number;
+    totalQuantity: number;
+    weightDiverted: number;
+    co2Saved: number;
   };
-  recentTransactions: Array<{
-    _id: string;
-    material: { title: string };
-    status: string;
-    createdAt: string;
-  }>;
 }
 
 export function useTransactionStats() {
@@ -400,4 +415,53 @@ interface LogisticsStatsData {
 
 export function useLogisticsStats() {
   return useFetch<LogisticsStatsData>(() => getLogisticsStats(), []);
+}
+
+// =============================================
+// AI Assistant Hooks
+// =============================================
+
+interface ConversationsData {
+  conversations: Array<{
+    _id: string;
+    title: string;
+    type: string;
+    lastMessage: string;
+    updatedAt: string;
+  }>;
+  pagination: {
+    total: number;
+    page: number;
+    pages: number;
+    limit: number;
+  };
+}
+
+export function useAIConversations(page: number = 1, limit: number = 20) {
+  return useFetch<ConversationsData>(() => getAIConversations(page, limit), [page, limit]);
+}
+
+interface ConversationDetailsData {
+  conversation: {
+    _id: string;
+    title: string;
+    type: string;
+    messages: Array<{
+      role: "user" | "assistant" | "system";
+      content: string;
+      timestamp: string;
+    }>;
+    material?: {
+      _id: string;
+      title: string;
+    };
+    createdAt: string;
+  };
+}
+
+export function useAIConversation(id: string | null) {
+  return useFetch<ConversationDetailsData>(
+    () => (id ? getAIConversation(id) : Promise.resolve({ data: null })),
+    [id]
+  );
 }

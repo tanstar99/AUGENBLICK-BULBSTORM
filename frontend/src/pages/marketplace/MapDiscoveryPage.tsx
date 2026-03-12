@@ -1,4 +1,4 @@
-// Map Discovery Page - Map-based material discovery with clustering
+// Map Discovery Page - Map-based material discovery with clustering + delivery simulation
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -7,6 +7,7 @@ import {
   TileLayer,
   Marker,
   Popup,
+  Polyline,
   useMap,
   useMapEvents,
 } from "react-leaflet";
@@ -30,18 +31,66 @@ import {
   Leaf,
   Info,
   List,
+  Truck,
+  CheckCircle2,
 } from "lucide-react";
 import { getNearbyMaterials, createRequest } from "@/api/services";
 import { useAppSelector } from "@/hooks/useRedux";
 import { ROUTES } from "@/config/constants";
 import { toast } from "react-toastify";
 
-// Mumbai coordinates
+// ─── Constants ────────────────────────────────────────────────────────────────
 const MUMBAI_CENTER: [number, number] = [19.076, 72.8777];
 const DEFAULT_ZOOM = 11;
 const DEFAULT_RADIUS = 15; // km
 
-// Fix Leaflet default marker icon issue
+// ─── Delivery types (from mapping project) ────────────────────────────────────
+type DeliveryStatus =
+  | "idle"
+  | "calculating_route"
+  | "assigned"
+  | "picked_up"
+  | "on_the_way"
+  | "delivered";
+
+interface DeliveryContext {
+  material: Material;
+  status: DeliveryStatus;
+  vehicleLocation: [number, number];
+  progress: number;
+  routeGeometry?: [number, number][];
+  bearing: number;
+}
+
+// ─── Geo-math helpers (from mapping project) ──────────────────────────────────
+const calculateDistance = (p1: [number, number], p2: [number, number]) => {
+  const R = 6371;
+  const dLat = ((p2[0] - p1[0]) * Math.PI) / 180;
+  const dLon = ((p2[1] - p1[1]) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((p1[0] * Math.PI) / 180) *
+      Math.cos((p2[0] * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+const calculateBearing = (p1: [number, number], p2: [number, number]) => {
+  const lat1 = (p1[0] * Math.PI) / 180;
+  const lat2 = (p2[0] * Math.PI) / 180;
+  const dLon = ((p2[1] - p1[1]) * Math.PI) / 180;
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  let bearing = (Math.atan2(y, x) * 180) / Math.PI;
+  bearing = (bearing + 360) % 360;
+  return bearing;
+};
+
+// ─── Leaflet default icon fix ─────────────────────────────────────────────────
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
@@ -52,7 +101,7 @@ L.Icon.Default.mergeOptions({
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
 });
 
-// Custom marker icons
+// ─── Existing dark-themed custom marker icons ─────────────────────────────────
 const createCustomIcon = (color: string, emoji?: string) => {
   return L.divIcon({
     className: "custom-div-icon",
@@ -105,7 +154,29 @@ const userLocationIcon = L.divIcon({
   iconAnchor: [12, 12],
 });
 
-// Material type
+// Vehicle marker icon (dark-themed, from mapping project)
+const getVehicleIcon = (bearing: number = 0) =>
+  L.divIcon({
+    className: "custom-div-icon",
+    html: `<div style="
+      background: linear-gradient(135deg, #10b981, #059669);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 2px 10px rgba(16,185,129,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: transform 0.1s linear;
+      transform: rotate(${bearing}deg);
+    ">🚚</div>`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+  });
+
+// ─── Material type (unchanged) ────────────────────────────────────────────────
 interface Material {
   _id: string;
   title: string;
@@ -139,7 +210,7 @@ interface Material {
   createdAt: string;
 }
 
-// Category to emoji mapping
+// ─── Category helpers (unchanged) ─────────────────────────────────────────────
 const getCategoryEmoji = (categoryName: string): string => {
   const emojiMap: Record<string, string> = {
     wood: "🪵",
@@ -160,7 +231,6 @@ const getCategoryEmoji = (categoryName: string): string => {
   return emojiMap[key] || "📦";
 };
 
-// Category to color mapping
 const getCategoryColor = (categoryName: string): string => {
   const colorMap: Record<string, string> = {
     wood: "#8B4513",
@@ -181,7 +251,7 @@ const getCategoryColor = (categoryName: string): string => {
   return colorMap[key] || "#10B981";
 };
 
-// Map event handler component
+// ─── Map helper components (unchanged) ────────────────────────────────────────
 const MapEventHandler: React.FC<{
   onMoveEnd: (center: L.LatLng, bounds: L.LatLngBounds) => void;
 }> = ({ onMoveEnd }) => {
@@ -194,7 +264,6 @@ const MapEventHandler: React.FC<{
   return null;
 };
 
-// Fly to location component
 const FlyToLocation: React.FC<{ position: [number, number] | null }> = ({
   position,
 }) => {
@@ -207,10 +276,31 @@ const FlyToLocation: React.FC<{ position: [number, number] | null }> = ({
   return null;
 };
 
+// ─── Delivery status text helper ──────────────────────────────────────────────
+const getStatusText = (status: DeliveryStatus) => {
+  switch (status) {
+    case "calculating_route":
+      return "Mapping optimal route…";
+    case "assigned":
+      return "Partner Assigned";
+    case "picked_up":
+      return "Material Picked Up";
+    case "on_the_way":
+      return "Arriving Soon";
+    case "delivered":
+      return "Delivered Successfully";
+    default:
+      return "";
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Component
+// ═══════════════════════════════════════════════════════════════════════════════
 const MapDiscoveryPage: React.FC = () => {
   const { user } = useAppSelector((state) => state.auth);
 
-  // State
+  // ── Existing state ──────────────────────────────────────────────────────────
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -224,7 +314,10 @@ const MapDiscoveryPage: React.FC = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [flyToPosition, setFlyToPosition] = useState<[number, number] | null>(null);
 
-  // Fetch materials based on location
+  // ── New delivery state (from mapping) ───────────────────────────────────────
+  const [delivery, setDelivery] = useState<DeliveryContext | null>(null);
+
+  // ── Fetch materials (unchanged) ─────────────────────────────────────────────
   const fetchMaterials = useCallback(async (lat: number, lng: number) => {
     try {
       setLoading(true);
@@ -243,7 +336,7 @@ const MapDiscoveryPage: React.FC = () => {
     }
   }, []);
 
-  // Get user location
+  // ── Geolocation (unchanged) ─────────────────────────────────────────────────
   const getUserLocation = useCallback(() => {
     if (!navigator.geolocation) {
       toast.warning("Geolocation is not supported by your browser");
@@ -266,27 +359,20 @@ const MapDiscoveryPage: React.FC = () => {
     );
   }, [fetchMaterials]);
 
-  // Initial load
   useEffect(() => {
     getUserLocation();
   }, [getUserLocation]);
 
-  // Handle map move
-  const handleMapMoveEnd = useCallback(
-    (center: L.LatLng) => {
-      setMapCenter([center.lat, center.lng]);
-      // Optionally refetch on map move (commented out to reduce API calls)
-      // fetchMaterials(center.lat, center.lng);
-    },
-    []
-  );
+  // ── Map move (unchanged) ────────────────────────────────────────────────────
+  const handleMapMoveEnd = useCallback((center: L.LatLng) => {
+    setMapCenter([center.lat, center.lng]);
+  }, []);
 
-  // Refresh materials at current center
   const handleRefresh = () => {
     fetchMaterials(mapCenter[0], mapCenter[1]);
   };
 
-  // Open material modal
+  // ── Modal helpers (unchanged) ───────────────────────────────────────────────
   const openMaterialModal = (material: Material) => {
     setSelectedMaterial(material);
     setCurrentImageIndex(0);
@@ -295,7 +381,7 @@ const MapDiscoveryPage: React.FC = () => {
     setShowModal(true);
   };
 
-  // Submit material request
+  // ── Submit request (unchanged) ──────────────────────────────────────────────
   const handleSubmitRequest = async () => {
     if (!selectedMaterial || !user) return;
 
@@ -306,7 +392,6 @@ const MapDiscoveryPage: React.FC = () => {
 
     try {
       setSubmittingRequest(true);
-      // Use quantityRequested to match backend expectation
       const response = await createRequest({
         materialId: selectedMaterial._id,
         message: requestMessage,
@@ -327,7 +412,176 @@ const MapDiscoveryPage: React.FC = () => {
     }
   };
 
-  // Generate marker icons for materials
+  // ── NEW: Delivery animation effect (from mapping) ──────────────────────────
+  useEffect(() => {
+    if (
+      !delivery ||
+      delivery.status === "delivered" ||
+      delivery.status === "calculating_route"
+    )
+      return;
+
+    if (!delivery.routeGeometry || delivery.routeGeometry.length === 0) {
+      // Fallback straight-line logic
+      const targetLoc = userLocation || MUMBAI_CENTER;
+      const startLoc: [number, number] = [
+        delivery.material.location.coordinates[1],
+        delivery.material.location.coordinates[0],
+      ];
+      const TOTAL_STEPS = 100;
+
+      const interval = setInterval(() => {
+        setDelivery((prev) => {
+          if (!prev) return prev;
+          let nextProgress = prev.progress + 1 / TOTAL_STEPS;
+          if (nextProgress >= 1) nextProgress = 1;
+
+          const currentLat =
+            startLoc[0] + (targetLoc[0] - startLoc[0]) * nextProgress;
+          const currentLng =
+            startLoc[1] + (targetLoc[1] - startLoc[1]) * nextProgress;
+
+          let nextStatus = prev.status;
+          if (nextProgress === 1) nextStatus = "delivered";
+          else if (nextProgress > 0.6) nextStatus = "on_the_way";
+          else if (nextProgress > 0.1) nextStatus = "picked_up";
+          if (nextProgress === 1) clearInterval(interval);
+
+          const newBearing = calculateBearing(startLoc, targetLoc);
+          return {
+            ...prev,
+            progress: nextProgress,
+            status: nextStatus as DeliveryStatus,
+            vehicleLocation: [currentLat, currentLng],
+            bearing: newBearing,
+          };
+        });
+      }, 20);
+
+      return () => clearInterval(interval);
+    }
+
+    // Advanced OSRM routing animation
+    const route = delivery.routeGeometry;
+    let totalDistance = 0;
+    const segmentDistances: number[] = [];
+
+    for (let i = 0; i < route.length - 1; i++) {
+      const dist = calculateDistance(route[i], route[i + 1]);
+      segmentDistances.push(dist);
+      totalDistance += dist;
+    }
+
+    const progressPerTick = 0.002;
+
+    const interval = setInterval(() => {
+      setDelivery((prev) => {
+        if (!prev || !prev.routeGeometry) return prev;
+
+        let nextProgress = prev.progress + progressPerTick;
+        if (nextProgress >= 1) nextProgress = 1;
+
+        const currentDistanceTravelled = nextProgress * totalDistance;
+        let distanceAccumulator = 0;
+        let currentSegmentIndex = 0;
+        let pSegment = 0;
+
+        for (let i = 0; i < segmentDistances.length; i++) {
+          if (
+            distanceAccumulator + segmentDistances[i] >=
+            currentDistanceTravelled
+          ) {
+            currentSegmentIndex = i;
+            const remaining = currentDistanceTravelled - distanceAccumulator;
+            pSegment =
+              segmentDistances[i] === 0 ? 0 : remaining / segmentDistances[i];
+            break;
+          }
+          distanceAccumulator += segmentDistances[i];
+          if (i === segmentDistances.length - 1) {
+            currentSegmentIndex = i;
+            pSegment = 1;
+          }
+        }
+
+        const p1 = route[currentSegmentIndex];
+        const p2 = route[Math.min(currentSegmentIndex + 1, route.length - 1)];
+
+        const currentLat = p1[0] + (p2[0] - p1[0]) * pSegment;
+        const currentLng = p1[1] + (p2[1] - p1[1]) * pSegment;
+
+        const newBearing =
+          calculateDistance(p1, p2) > 0.0001
+            ? calculateBearing(p1, p2)
+            : prev.bearing;
+
+        let nextStatus = prev.status;
+        if (nextProgress === 1) nextStatus = "delivered";
+        else if (nextProgress > 0.6) nextStatus = "on_the_way";
+        else if (nextProgress > 0.1) nextStatus = "picked_up";
+        if (nextProgress === 1) clearInterval(interval);
+
+        return {
+          ...prev,
+          progress: nextProgress,
+          status: nextStatus as DeliveryStatus,
+          vehicleLocation: [currentLat, currentLng],
+          bearing: newBearing,
+        };
+      });
+    }, 20);
+
+    return () => clearInterval(interval);
+  }, [delivery, userLocation]);
+
+  // ── NEW: Request delivery handler (from mapping) ───────────────────────────
+  const handleRequestDelivery = async (material: Material) => {
+    setShowModal(false);
+    const destination = userLocation || MUMBAI_CENTER;
+    if (!userLocation) setUserLocation(MUMBAI_CENTER);
+
+    const startLoc: [number, number] = [
+      material.location.coordinates[1],
+      material.location.coordinates[0],
+    ];
+
+    setDelivery({
+      material,
+      status: "calculating_route",
+      vehicleLocation: startLoc,
+      progress: 0,
+      bearing: 0,
+    });
+
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${startLoc[1]},${startLoc[0]};${destination[1]},${destination[0]}?overview=full&geometries=geojson`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.code === "Ok" && data.routes && data.routes.length > 0) {
+        const geometry = data.routes[0].geometry.coordinates;
+        const latLngGeometry: [number, number][] = geometry.map(
+          (coord: [number, number]) => [coord[1], coord[0]]
+        );
+        setDelivery((prev) =>
+          prev
+            ? { ...prev, routeGeometry: latLngGeometry, status: "assigned" }
+            : null
+        );
+      } else {
+        setDelivery((prev) =>
+          prev ? { ...prev, status: "assigned" } : null
+        );
+      }
+    } catch (error) {
+      console.error("OSRM Routing failed, falling back to straight line", error);
+      setDelivery((prev) =>
+        prev ? { ...prev, status: "assigned" } : null
+      );
+    }
+  };
+
+  // ── Marker icons (unchanged) ────────────────────────────────────────────────
   const markerIcons = useMemo(() => {
     const icons: Record<string, L.DivIcon> = {};
     materials.forEach((m) => {
@@ -342,12 +596,14 @@ const MapDiscoveryPage: React.FC = () => {
     return icons;
   }, [materials]);
 
+  // ═════════════════════════════════════════════════════════════════════════════
+  // Render
+  // ═════════════════════════════════════════════════════════════════════════════
   return (
     <div className="h-screen w-full relative bg-neutral-950 flex flex-col">
-      {/* Header */}
+      {/* Header (unchanged) */}
       <div className="absolute top-0 left-0 right-0 z-[1000] p-4 pointer-events-none">
         <div className="flex items-center justify-between">
-          {/* Back to Marketplace */}
           <Link
             to={ROUTES.MARKETPLACE}
             className="pointer-events-auto inline-flex items-center gap-2 px-4 py-2.5 bg-neutral-900/90 backdrop-blur-sm border border-neutral-800 rounded-xl text-white hover:bg-neutral-800 transition-colors"
@@ -356,9 +612,7 @@ const MapDiscoveryPage: React.FC = () => {
             <span className="text-sm font-medium">List View</span>
           </Link>
 
-          {/* Controls */}
           <div className="pointer-events-auto flex items-center gap-2">
-            {/* Refresh */}
             <button
               onClick={handleRefresh}
               disabled={loading}
@@ -368,7 +622,6 @@ const MapDiscoveryPage: React.FC = () => {
               <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />
             </button>
 
-            {/* Center on user */}
             <button
               onClick={() => {
                 if (userLocation) {
@@ -394,17 +647,16 @@ const MapDiscoveryPage: React.FC = () => {
           style={{ height: "100%", width: "100%" }}
           zoomControl={false}
         >
-          {/* Dark OpenStreetMap tiles */}
+          {/* Dark tiles (unchanged) */}
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           />
 
-          {/* Map event handlers */}
           <MapEventHandler onMoveEnd={handleMapMoveEnd} />
           <FlyToLocation position={flyToPosition} />
 
-          {/* User location marker */}
+          {/* User location (unchanged) */}
           {userLocation && (
             <Marker position={userLocation} icon={userLocationIcon}>
               <Popup className="dark-popup">
@@ -415,7 +667,7 @@ const MapDiscoveryPage: React.FC = () => {
             </Marker>
           )}
 
-          {/* Material markers with clustering */}
+          {/* Material markers with clustering (unchanged) */}
           <MarkerClusterGroup
             chunkedLoading
             spiderfyOnMaxZoom
@@ -445,7 +697,6 @@ const MapDiscoveryPage: React.FC = () => {
             }}
           >
             {materials.map((material) => {
-              // Convert [lng, lat] to [lat, lng] for Leaflet
               const position: [number, number] = [
                 material.location.coordinates[1],
                 material.location.coordinates[0],
@@ -488,9 +739,43 @@ const MapDiscoveryPage: React.FC = () => {
               );
             })}
           </MarkerClusterGroup>
+
+          {/* NEW: Delivery route polyline + vehicle marker */}
+          {delivery && userLocation && (
+            <>
+              <Polyline
+                positions={
+                  delivery.routeGeometry || [
+                    [
+                      delivery.material.location.coordinates[1],
+                      delivery.material.location.coordinates[0],
+                    ],
+                    userLocation,
+                  ]
+                }
+                pathOptions={{
+                  color: "#10b981",
+                  weight: 4,
+                  dashArray: "8, 8",
+                  opacity: 0.6,
+                }}
+              />
+              <Marker
+                position={delivery.vehicleLocation}
+                icon={getVehicleIcon(delivery.bearing)}
+                zIndexOffset={1000}
+              >
+                <Popup className="dark-popup">
+                  <div className="text-center p-1">
+                    <p className="font-medium text-neutral-900">Delivery Partner</p>
+                  </div>
+                </Popup>
+              </Marker>
+            </>
+          )}
         </MapContainer>
 
-        {/* Loading overlay */}
+        {/* Loading overlay (unchanged) */}
         {loading && (
           <div className="absolute inset-0 bg-neutral-950/60 backdrop-blur-sm flex items-center justify-center z-[1001]">
             <div className="flex flex-col items-center gap-3">
@@ -500,7 +785,7 @@ const MapDiscoveryPage: React.FC = () => {
           </div>
         )}
 
-        {/* Error message */}
+        {/* Error message (unchanged) */}
         {error && !loading && (
           <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[1001]">
             <div className="flex items-center gap-2 px-4 py-2 bg-red-500/20 border border-red-500/30 rounded-xl text-red-400 text-sm">
@@ -510,8 +795,8 @@ const MapDiscoveryPage: React.FC = () => {
           </div>
         )}
 
-        {/* Materials count badge */}
-        {!loading && materials.length > 0 && (
+        {/* Materials count badge (unchanged) */}
+        {!loading && materials.length > 0 && !delivery && (
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1001]">
             <div className="flex items-center gap-2 px-4 py-2 bg-neutral-900/90 backdrop-blur-sm border border-neutral-800 rounded-full text-white text-sm">
               <Package className="w-4 h-4 text-emerald-400" />
@@ -519,9 +804,71 @@ const MapDiscoveryPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* NEW: Delivery tracking overlay (dark-themed) */}
+        {delivery && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-11/12 max-w-sm z-[1001]">
+            <div className="bg-neutral-900/95 backdrop-blur-sm border border-neutral-800 rounded-2xl shadow-2xl p-4">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-bold text-white flex items-center gap-2">
+                  <Truck size={20} className="text-emerald-400" />
+                  {getStatusText(delivery.status)}
+                </h3>
+                <span className="text-sm font-semibold bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-md">
+                  ETA: {Math.max(1, Math.ceil((1 - delivery.progress) * 10))} min
+                </span>
+              </div>
+
+              <div className="w-full bg-neutral-800 h-2 rounded-full overflow-hidden mb-3">
+                <div
+                  className="bg-gradient-to-r from-emerald-500 to-teal-500 h-full transition-all duration-300 ease-linear rounded-full"
+                  style={{
+                    width: `${Math.max(5, delivery.progress * 100)}%`,
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center gap-3 bg-neutral-800/50 p-3 rounded-xl border border-neutral-700">
+                <div className="w-10 h-10 bg-emerald-500/10 rounded-full flex items-center justify-center flex-shrink-0 text-emerald-400">
+                  {delivery.status === "delivered" ? (
+                    <CheckCircle2 size={24} />
+                  ) : (
+                    <Navigation
+                      size={20}
+                      className={
+                        delivery.status === "assigned" ||
+                        delivery.status === "calculating_route"
+                          ? "animate-pulse"
+                          : ""
+                      }
+                    />
+                  )}
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <p className="text-xs text-neutral-500 font-medium whitespace-nowrap">
+                    {delivery.status === "calculating_route"
+                      ? "Processing"
+                      : "Delivering"}
+                  </p>
+                  <p className="text-sm font-semibold text-white truncate whitespace-nowrap">
+                    {delivery.material.title}
+                  </p>
+                </div>
+                {delivery.status === "delivered" && (
+                  <button
+                    onClick={() => setDelivery(null)}
+                    className="text-sm font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 px-3 py-1 rounded-full cursor-pointer ml-2"
+                  >
+                    Close
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Material Details Modal */}
+      {/* Material Details Modal (unchanged dark theme + NEW delivery button) */}
       <AnimatePresence>
         {showModal && selectedMaterial && (
           <motion.div
@@ -670,15 +1017,16 @@ const MapDiscoveryPage: React.FC = () => {
                 )}
 
                 {/* Seller Info */}
+                {selectedMaterial.listedBy && (
                 <div className="p-4 bg-neutral-800/50 rounded-xl">
                   <h4 className="text-sm font-medium text-neutral-400 mb-3">
                     Listed By
                   </h4>
                   <div className="flex items-center gap-3">
-                    {selectedMaterial.listedBy.avatar ? (
+                    {selectedMaterial.listedBy?.avatar ? (
                       <img
                         src={selectedMaterial.listedBy.avatar}
-                        alt={selectedMaterial.listedBy.name}
+                        alt={selectedMaterial.listedBy?.name || "Seller"}
                         className="w-12 h-12 rounded-full object-cover"
                       />
                     ) : (
@@ -688,9 +1036,9 @@ const MapDiscoveryPage: React.FC = () => {
                     )}
                     <div className="flex-1">
                       <p className="font-medium text-white">
-                        {selectedMaterial.listedBy.name}
+                        {selectedMaterial.listedBy?.name || "Unknown Seller"}
                       </p>
-                      {selectedMaterial.listedBy.rating && (
+                      {selectedMaterial.listedBy?.rating && (
                         <div className="flex items-center gap-1 mt-0.5">
                           <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
                           <span className="text-sm text-white">
@@ -704,9 +1052,10 @@ const MapDiscoveryPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
+                )}
 
                 {/* Request Form */}
-                {user && selectedMaterial.listedBy._id !== user._id && (
+                {user && selectedMaterial.listedBy?._id !== user._id && (
                   <div className="space-y-4 p-4 bg-emerald-900/20 border border-emerald-800/30 rounded-xl">
                     <h4 className="text-sm font-medium text-emerald-400 flex items-center gap-2">
                       <Leaf className="w-4 h-4" />
@@ -755,7 +1104,18 @@ const MapDiscoveryPage: React.FC = () => {
                   </a>
                 )}
 
-                {user && selectedMaterial.listedBy._id !== user._id ? (
+                {/* NEW: Simulate Delivery button */}
+                {user && selectedMaterial.listedBy?._id !== user._id && (
+                  <button
+                    onClick={() => handleRequestDelivery(selectedMaterial)}
+                    className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-neutral-800 border border-emerald-700/50 text-emerald-400 font-medium rounded-xl hover:bg-neutral-700 transition-all"
+                  >
+                    <Truck className="w-4 h-4" />
+                    Simulate Delivery
+                  </button>
+                )}
+
+                {user && selectedMaterial.listedBy?._id !== user._id ? (
                   <button
                     onClick={handleSubmitRequest}
                     disabled={submittingRequest}
@@ -787,7 +1147,7 @@ const MapDiscoveryPage: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Custom CSS for dark popup */}
+      {/* Custom CSS for dark popup (unchanged) */}
       <style>{`
         .dark-popup .leaflet-popup-content-wrapper {
           background: #171717;

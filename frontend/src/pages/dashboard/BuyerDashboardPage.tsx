@@ -4,23 +4,17 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   MapPin,
-  Leaf,
   Recycle,
   FileText,
   ArrowLeftRight,
-  Clock,
   Search,
-  Plus,
-  Bookmark,
   ChevronRight,
   TreeDeciduous,
-  Droplets,
   Globe2,
   ExternalLink,
   MessageSquare,
   Navigation,
   Sparkles,
-  Loader2,
   AlertCircle,
   Package,
   Truck,
@@ -54,8 +48,19 @@ const BuyerDashboardPage: React.FC = () => {
   const { user } = useAppSelector((state) => state.auth);
 
   // Fetch real data from APIs
+  const [coords, setCoords] = React.useState({ lat: 19.076, lng: 72.8777 }); // Default Mumbai
+  
+  React.useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => console.log("Using default coordinates")
+      );
+    }
+  }, []);
+
   const { data: impact, loading: impactLoading, error: impactError } = useUserImpact();
-  const { data: nearbyData, loading: nearbyLoading, error: nearbyError } = useNearbyMaterials(50);
+  const { data: nearbyData, loading: nearbyLoading, error: nearbyError } = useNearbyMaterials(coords.lat, coords.lng);
   const { data: requestsData, loading: requestsLoading, error: requestsError } = useRequests({ type: "sent" });
   const { data: transactionsData, loading: transactionsLoading, error: transactionsError } = useTransactions({ role: "receiver" });
 
@@ -67,8 +72,8 @@ const BuyerDashboardPage: React.FC = () => {
   };
 
   // Extract impact stats
-  const co2Saved = formatWeight(impact?.summary?.co2Saved?.kg);
-  const wasteDiverted = formatWeight(impact?.summary?.wasteDiverted?.kg);
+  const co2Saved = formatWeight(impact?.summary?.co2SavedKg);
+  const wasteDiverted = formatWeight(impact?.summary?.wasteDivertedKg);
   const totalExchanges = impact?.summary?.totalTransactions || 0;
 
   // Get requests (sent = buyer initiated)
@@ -221,9 +226,9 @@ const BuyerDashboardPage: React.FC = () => {
                   <span className="text-lg text-neutral-500">{co2Saved.unit}</span>
                 </div>
               )}
-              {impact?.equivalents?.treesPlanted && (
+              {impact?.summary?.co2SavedKg !== undefined && (
                 <p className="text-xs text-emerald-400 mt-2">
-                  = {impact.equivalents.treesPlanted} trees planted
+                  = {(impact.summary.co2SavedKg / 21).toFixed(1)} trees planted
                 </p>
               )}
             </div>
@@ -323,15 +328,7 @@ const BuyerDashboardPage: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-3">
-                {nearbyMaterials.slice(0, 5).map((material: {
-                  _id: string;
-                  title: string;
-                  category: { name: string };
-                  quantity: number;
-                  unit: string;
-                  location?: { address?: string };
-                  distance?: number;
-                }) => (
+                {nearbyMaterials.slice(0, 5).map((material: any) => (
                   <Link
                     key={material._id}
                     to={`${ROUTES.MARKETPLACE}/${material._id}`}
@@ -351,7 +348,7 @@ const BuyerDashboardPage: React.FC = () => {
                     {material.distance && (
                       <span className="text-xs text-emerald-400 flex items-center gap-1">
                         <Navigation className="w-3 h-3" />
-                        {material.distance.toFixed(1)} km
+                        {Number(material.distance).toFixed(1)} km
                       </span>
                     )}
                   </Link>
@@ -400,15 +397,7 @@ const BuyerDashboardPage: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-3">
-                {myRequests.slice(0, 4).map((request: {
-                  _id: string;
-                  material: { title: string; _id: string };
-                  supplier: { name: string; company?: { name: string } };
-                  status: string;
-                  quantity: number;
-                  unit: string;
-                  createdAt: string;
-                }) => (
+                {myRequests.slice(0, 4).map((request: any) => (
                   <div
                     key={request._id}
                     className="p-3 rounded-xl bg-neutral-800/30 hover:bg-neutral-800/50 transition-colors"
@@ -419,7 +408,7 @@ const BuyerDashboardPage: React.FC = () => {
                           {request.material?.title || "Material Request"}
                         </p>
                         <p className="text-xs text-neutral-500">
-                          {request.supplier?.company?.name || request.supplier?.name || "Seller"}
+                          {request.supplier?.name || "Seller"}
                         </p>
                       </div>
                       <span
@@ -478,16 +467,7 @@ const BuyerDashboardPage: React.FC = () => {
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 gap-4">
-              {activeTransactions.slice(0, 4).map((tx: {
-                _id: string;
-                transactionId: string;
-                material: { title: string };
-                supplier: { name: string; company?: { name: string } };
-                status: string;
-                agreedPrice?: number;
-                currency?: string;
-                createdAt: string;
-              }) => (
+              {activeTransactions.slice(0, 4).map((tx: any) => (
                 <Link
                   key={tx._id}
                   to={`${ROUTES.TRANSACTIONS}/${tx._id}`}
@@ -495,7 +475,6 @@ const BuyerDashboardPage: React.FC = () => {
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <p className="text-xs text-neutral-500 mb-1">{tx.transactionId}</p>
                       <p className="text-sm font-medium text-white group-hover:text-purple-400 transition-colors">
                         {tx.material?.title || "Transaction"}
                       </p>
@@ -510,11 +489,11 @@ const BuyerDashboardPage: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-neutral-500">
-                      {tx.supplier?.company?.name || tx.supplier?.name}
+                      {tx.supplier?.name}
                     </span>
                     <span className="text-emerald-400 font-medium">
                       {tx.agreedPrice
-                        ? `${tx.currency || "$"}${tx.agreedPrice}`
+                        ? `$${tx.agreedPrice}`
                         : "Pending"}
                     </span>
                   </div>

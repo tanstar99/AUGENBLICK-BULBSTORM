@@ -165,6 +165,14 @@ export const deleteMaterial = async (id: string) => {
   return response.data;
 };
 
+/**
+ * Update current user's profile
+ */
+export const updateProfile = async (data: Record<string, unknown>) => {
+  const response = await apiClient.patch(API_ENDPOINTS.AUTH.ME, data);
+  return response.data;
+};
+
 // =============================================
 // Requests API
 // =============================================
@@ -367,6 +375,50 @@ export const updateLogisticsJob = async (id: string, action: string) => {
 };
 
 // =============================================
+// AI API
+// =============================================
+
+/**
+ * Chat with AI assistant
+ */
+export const chatWithAI = async (message: string, conversationId?: string, type?: string) => {
+  const response = await apiClient.post(API_ENDPOINTS.AI.CHAT, { message, conversationId, type });
+  return response.data;
+};
+
+/**
+ * Get AI conversations
+ */
+export const getAIConversations = async (page = 1, limit = 20) => {
+  const response = await apiClient.get(`${API_ENDPOINTS.AI.CONVERSATIONS}?page=${page}&limit=${limit}`);
+  return response.data;
+};
+
+/**
+ * Get single AI conversation
+ */
+export const getAIConversation = async (id: string) => {
+  const response = await apiClient.get(`${API_ENDPOINTS.AI.CONVERSATIONS}/${id}`);
+  return response.data;
+};
+
+/**
+ * Delete AI conversation
+ */
+export const deleteAIConversation = async (id: string) => {
+  const response = await apiClient.delete(`${API_ENDPOINTS.AI.CONVERSATIONS}/${id}`);
+  return response.data;
+};
+
+/**
+ * Analyze material using AI
+ */
+export const analyzeMaterial = async (materialId: string) => {
+  const response = await apiClient.post(API_ENDPOINTS.AI.ANALYZE, { materialId });
+  return response.data;
+};
+
+// =============================================
 // Export all services
 // =============================================
 export const analyticsService = {
@@ -402,6 +454,18 @@ export const transactionsService = {
   getStats: getTransactionStats,
   getOne: getTransaction,
   update: updateTransaction,
+};
+
+export const authService = {
+  updateProfile,
+};
+
+export const aiService = {
+  chat: chatWithAI,
+  getConversations: getAIConversations,
+  getOne: getAIConversation,
+  delete: deleteAIConversation,
+  analyze: analyzeMaterial,
 };
 
 export const logisticsService = {
