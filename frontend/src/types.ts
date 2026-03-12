@@ -1,3 +1,7 @@
+// Re-export all types from types/index.ts
+export * from "./types/index";
+
+// Legacy types (kept for backward compatibility)
 export interface MaterialListing {
   id: string;
   name: string;

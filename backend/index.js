@@ -1,41 +1,46 @@
-import express from "express";
 import dotenv from "dotenv";
-import ConnectDB from "./config/Db.js";
-import AuthRouter from "./routes/auth.routes.js";
-import cors from "cors";
-import UserRouter from "./routes/user.routes.js";
-import cookieParser from "cookie-parser";
 
+// Load environment variables first
 dotenv.config();
-const app = express();
+
+import app from "./app.js";
+import connectDB from "./config/db.js";
+
 const PORT = process.env.PORT || 5000;
-
-app.use(express.json());
-app.use(cookieParser());
-app.use(
-  cors({
-    origin: ["http://localhost:5173"],
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true,
-  }),
-);
-
-app.use("/api/auth", AuthRouter);
-app.use("/api/user", UserRouter);
-
-app.get("/", (req, res) => {
-  res.send("API is running...");
-});
 
 const startServer = async () => {
   try {
-    await ConnectDB();
+    // Connect to MongoDB
+    await connectDB();
+
+    // Start Express server
     app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
+      console.log(`
+╔═══════════════════════════════════════════════════════════╗
+║     Circular Economy Marketplace Backend                  ║
+╠═══════════════════════════════════════════════════════════╣
+║  Server is running on port ${PORT}                           ║
+║  Environment: ${process.env.NODE_ENV || "development"}                            ║
+║  API URL: http://localhost:${PORT}                           ║
+╚═══════════════════════════════════════════════════════════╝
+      `);
     });
   } catch (error) {
-    console.error("Server failed to start", error);
+    console.error("Failed to start server:", error.message);
+    process.exit(1);
   }
 };
+
+// Handle unhandled promise rejections
+process.on("unhandledRejection", (err) => {
+  console.error("Unhandled Rejection:", err.message);
+  process.exit(1);
+});
+
+// Handle uncaught exceptions
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err.message);
+  process.exit(1);
+});
 
 startServer();

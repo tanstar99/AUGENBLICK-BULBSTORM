@@ -1,0 +1,1149 @@
+================================================================================
+## PROJECT OVERVIEW
+================================================================================
+
+This is a full-stack Circular Economy Marketplace platform that connects surplus 
+material owners with seekers, enabling material reuse and reducing environmental 
+waste. The platform features real-time geospatial search, AI-powered suggestions, 
+logistics coordination, and sustainability impact tracking.
+
+### Tech Stack
+
+**Backend:**
+- Node.js + Express.js
+- MongoDB with Mongoose ODM
+- JWT Authentication (access + refresh tokens)
+- GeoJSON for location-based queries (2dsphere indexes)
+- Port: 5001
+
+**Frontend:**
+- React 19 + TypeScript
+- Vite + TailwindCSS v4
+- Redux Toolkit for state management
+- React Router v7
+- Framer Motion for animations
+- Leaflet + React-Leaflet for maps
+- Port: 5173 (dev)
+
+### Project Structure
+
+```
+root/
+├── backend/
+│   ├── index.js              # Express server entry point
+│   ├── config/Db.js          # MongoDB connection
+│   ├── controllers/          # Route handlers
+│   ├── models/               # Mongoose schemas
+│   ├── routes/               # API route definitions
+│   ├── middleware/           # Auth, validation middleware
+│   └── utils/                # Helper functions, token generation
+│
+├── frontend/
+│   ├── src/
+│   │   ├── api/              # API client and service functions
+│   │   ├── components/       # Reusable UI components
+│   │   ├── config/           # Constants, routes, API endpoints
+│   │   ├── hooks/            # Custom React hooks
+│   │   ├── layouts/          # Page layouts (Dashboard, Auth)
+│   │   ├── pages/            # Page components
+│   │   ├── store/            # Redux store and slices
+│   │   ├── routes/           # Route guards (ProtectedRoute)
+│   │   └── types/            # TypeScript interfaces
+│   └── ...
+```
+
+================================================================================
+## DATA MODELS
+================================================================================
+
+### User Model
+```javascript
+{
+  _id: ObjectId,
+  email: String (unique, lowercase),
+  password: String (hashed, select: false),
+  name: String (required),
+  phone: String,
+  avatar: String (url),
+  role: "buyer" | "seller" | "ngo" | "logistics_partner" | "admin",
+  location: {
+    type: "Point",
+    coordinates: [Number, Number]  // [longitude, latitude]
+  },
+  address: {
+    street: String,
+    city: String,
+    state: String,
+    pincode: String,
+    country: String (default: "India")
+  },
+  isEmailVerified: Boolean,
+  isPhoneVerified: Boolean,
+  isActive: Boolean,
+  isBanned: Boolean,
+  businessDetails: {
+    companyName: String,
+    gstNumber: String,
+    businessType: "manufacturer" | "retailer" | "wholesaler" | "recycler" | "other",
+    website: String
+  },
+  impactStats: {
+    totalListings: Number,
+    totalTransactions: Number,
+    weightDiverted: Number,    // kg
+    co2Saved: Number           // kg
+  },
+  rating: {
+    average: Number (0-5),
+    count: Number
+  },
+  refreshToken: String (select: false),
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+### Material Model
+```javascript
+{
+  _id: ObjectId,
+  title: String (required, max 200),
+  description: String (required, max 5000),
+  category: ObjectId (ref: "Category", required),
+  subcategory: String,
+  condition: "new" | "like_new" | "good" | "fair" | "salvage",
+  quantity: Number (required, min 1),
+  availableQuantity: Number,
+  unit: "pieces" | "kg" | "tons" | "cubic_meters" | "square_meters" | "liters" | "units",
+  images: [{
+    url: String,
+    publicId: String,
+    isPrimary: Boolean
+  }],
+  location: {
+    type: "Point",
+    coordinates: [Number, Number]  // [longitude, latitude] - CRITICAL
+  },
+  address: {
+    street: String,
+    landmark: String,
+    city: String (required),
+    state: String,
+    pincode: String,
+    country: String (default: "India")
+  },
+  listedBy: ObjectId (ref: "User", required),
+  price: Number (default: 0),
+  priceType: "free" | "negotiable" | "fixed",
+  currency: String (default: "INR"),
+  status: "draft" | "available" | "reserved" | "partially_reserved" | "completed" | "expired" | "removed",
+  availableFrom: Date,
+  availableUntil: Date,
+  estimatedWeight: Number (kg),
+  tags: [String],
+  logisticsOptions: {
+    selfPickup: Boolean (default: true),
+    deliveryAvailable: Boolean (default: false),
+    deliveryRadius: Number (km),
+    deliveryCost: Number
+  },
+  views: Number,
+  saves: Number,
+  requestCount: Number,
+  isApproved: Boolean (default: true),
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+### MaterialRequest Model
+```javascript
+{
+  _id: ObjectId,
+  material: ObjectId (ref: "Material", required),
+  requester: ObjectId (ref: "User", required),
+  supplier: ObjectId (ref: "User", required),
+  quantityRequested: Number (required, min 1),
+  message: String (max 1000),
+  purpose: String (max 500),
+  status: "pending" | "approved" | "rejected" | "cancelled" | "expired" | "completed",
+  logisticsPreference: "self_pickup" | "delivery" | "flexible",
+  proposedPickupDate: Date,
+  proposedPickupTimeSlot: "morning" | "afternoon" | "evening" | "flexible",
+  deliveryAddress: {
+    street: String,
+    landmark: String,
+    city: String,
+    state: String,
+    pincode: String,
+    location: { type: "Point", coordinates: [Number] }
+  },
+  responseMessage: String,
+  respondedAt: Date,
+  offeredPrice: Number,
+  agreedPrice: Number,
+  counterOffers: [{
+    by: ObjectId,
+    amount: Number,
+    message: String,
+    createdAt: Date
+  }],
+  transaction: ObjectId (ref: "Transaction"),
+  cancelledBy: ObjectId,
+  cancellationReason: String,
+  expiresAt: Date (default: 7 days from creation),
+  messages: [{
+    sender: ObjectId,
+    content: String,
+    createdAt: Date,
+    isRead: Boolean
+  }],
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+### Transaction Model
+```javascript
+{
+  _id: ObjectId,
+  request: ObjectId (ref: "MaterialRequest"),
+  material: ObjectId (ref: "Material"),
+  supplier: ObjectId (ref: "User"),
+  receiver: ObjectId (ref: "User"),
+  quantityExchanged: Number,
+  unit: String,
+  agreedPrice: Number,
+  status: "initiated" | "scheduled" | "in_progress" | "handed_over" | "received" | "completed" | "disputed" | "cancelled",
+  supplierConfirmed: Boolean,
+  receiverConfirmed: Boolean,
+  logisticsJob: ObjectId (ref: "LogisticsJob"),
+  logisticsType: "self_pickup" | "platform_delivery" | "third_party",
+  scheduledDate: Date,
+  pickupLocation: { type: "Point", coordinates: [Number] },
+  pickupAddress: { street, landmark, city, state, pincode },
+  deliveryLocation: { type: "Point", coordinates: [Number] },
+  deliveryAddress: { street, landmark, city, state, pincode },
+  completedAt: Date,
+  impactMetrics: {
+    weightDiverted: Number (kg),
+    co2Saved: Number (kg),
+    landfillDiverted: Number (kg),
+    categoryImpactFactor: Number
+  },
+  verificationCode: String (unique, 8 chars),
+  timeline: [{
+    event: String,
+    description: String,
+    timestamp: Date,
+    by: ObjectId
+  }],
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+### Category Model
+```javascript
+{
+  _id: ObjectId,
+  name: String (unique),
+  slug: String (unique),
+  icon: String (emoji or icon name),
+  description: String,
+  impactFactor: Number (for CO2 calculation),
+  isActive: Boolean,
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+================================================================================
+## API ENDPOINTS
+================================================================================
+
+Base URL: http://localhost:5001/api
+
+### Authentication Endpoints
+
+#### POST /api/auth/register
+**Access:** Public
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "password123",
+  "name": "John Doe",
+  "phone": "+919876543210",
+  "role": "buyer" | "seller" | "ngo" | "logistics_partner"
+}
+```
+**Response (201):**
+```json
+{
+  "success": true,
+  "message": "Registration successful.",
+  "data": {
+    "user": {
+      "_id": "...",
+      "email": "user@example.com",
+      "name": "John Doe",
+      "phone": "+919876543210",
+      "role": "buyer",
+      "avatar": null,
+      "isEmailVerified": false,
+      "createdAt": "2026-03-12T..."
+    },
+    "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
+  }
+}
+```
+
+#### POST /api/auth/login
+**Access:** Public
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+```
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Login successful.",
+  "data": {
+    "user": { ... },
+    "accessToken": "...",
+    "refreshToken": "..."
+  }
+}
+```
+
+#### GET /api/auth/me
+**Access:** Private (requires Bearer token)
+**Headers:** `Authorization: Bearer <accessToken>`
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "_id": "...",
+      "email": "...",
+      "name": "...",
+      "role": "...",
+      "avatar": "...",
+      "address": { ... },
+      "impactStats": { ... },
+      "rating": { ... }
+    }
+  }
+}
+```
+
+#### POST /api/auth/refresh-token
+**Access:** Public
+**Request Body:**
+```json
+{
+  "refreshToken": "..."
+}
+```
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "accessToken": "...",
+    "refreshToken": "..."
+  }
+}
+```
+
+#### POST /api/auth/logout
+**Access:** Private
+
+---
+
+### Materials Endpoints
+
+#### GET /api/materials
+**Access:** Public
+**Query Parameters:**
+- `page` (number, default: 1)
+- `limit` (number, default: 20)
+- `category` (ObjectId)
+- `condition` ("new" | "like_new" | "good" | "fair" | "salvage")
+- `priceType` ("free" | "negotiable" | "fixed")
+- `minPrice` (number)
+- `maxPrice` (number)
+- `city` (string, case-insensitive)
+- `status` (default: "available")
+- `sortBy` ("createdAt" | "price" | "quantity", default: "createdAt")
+- `sortOrder` ("asc" | "desc", default: "desc")
+- `search` (full-text search on title, description, tags)
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "materials": [
+      {
+        "_id": "...",
+        "title": "Wooden Pallets",
+        "description": "...",
+        "category": { "_id": "...", "name": "Wood", "icon": "🪵" },
+        "condition": "good",
+        "quantity": 50,
+        "availableQuantity": 50,
+        "unit": "pieces",
+        "images": [{ "url": "...", "isPrimary": true }],
+        "location": { "type": "Point", "coordinates": [72.8777, 19.076] },
+        "address": { "city": "Mumbai", "state": "Maharashtra" },
+        "listedBy": { "_id": "...", "name": "...", "avatar": "...", "rating": {...} },
+        "price": 0,
+        "priceType": "free",
+        "status": "available",
+        "views": 42,
+        "createdAt": "2026-03-10T..."
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "total": 156,
+      "totalPages": 8
+    }
+  }
+}
+```
+
+#### GET /api/materials/categories
+**Access:** Public
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "categories": [
+      { "_id": "...", "name": "Wood", "slug": "wood", "icon": "🪵", "impactFactor": 1.2 },
+      { "_id": "...", "name": "Metals", "slug": "metals", "icon": "🔩", "impactFactor": 1.8 },
+      ...
+    ]
+  }
+}
+```
+
+#### GET /api/materials/nearby
+**Access:** Public
+**Query Parameters (REQUIRED):**
+- `latitude` (number, -90 to 90)
+- `longitude` (number, -180 to 180)
+- `radius` (number, km, default: 10, max: 100)
+- `limit` (number, default: 20, max: 50)
+- `category` (ObjectId, optional)
+- `condition` (string, optional)
+- `priceType` (string, optional)
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "materials": [
+      {
+        "_id": "...",
+        "title": "...",
+        "category": { "name": "...", "slug": "...", "icon": "..." },
+        "condition": "good",
+        "quantity": 50,
+        "availableQuantity": 50,
+        "unit": "pieces",
+        "images": [...],
+        "location": { "type": "Point", "coordinates": [72.8777, 19.076] },
+        "address": { "city": "Mumbai", ... },
+        "listedBy": { "name": "...", "avatar": "...", "rating": {...} },
+        "price": 0,
+        "priceType": "free",
+        "distance": 2340,      // meters from query point
+        "distanceKm": 2.34     // kilometers
+      }
+    ],
+    "searchParams": {
+      "latitude": 19.076,
+      "longitude": 72.8777,
+      "radiusKm": 10
+    },
+    "count": 15
+  }
+}
+```
+
+#### GET /api/materials/search
+**Access:** Public
+**Query Parameters:**
+- `q` (string, required) - Search query
+- Plus all filters from GET /api/materials
+
+#### GET /api/materials/:id
+**Access:** Public (with optional auth for view tracking)
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "material": {
+      "_id": "...",
+      "title": "...",
+      "description": "...",
+      "category": { "_id": "...", "name": "...", "slug": "...", "icon": "..." },
+      "condition": "good",
+      "quantity": 50,
+      "availableQuantity": 50,
+      "unit": "pieces",
+      "images": [...],
+      "location": { "type": "Point", "coordinates": [lng, lat] },
+      "address": { "street": "...", "city": "...", "state": "...", "pincode": "..." },
+      "listedBy": {
+        "_id": "...",
+        "name": "...",
+        "avatar": "...",
+        "email": "...",
+        "phone": "...",
+        "company": { "name": "..." },
+        "rating": { "average": 4.5, "count": 23 }
+      },
+      "price": 500,
+      "priceType": "negotiable",
+      "status": "available",
+      "tags": ["pallets", "wood", "shipping"],
+      "logisticsOptions": { "selfPickup": true, "deliveryAvailable": true, "deliveryRadius": 20 },
+      "estimatedImpact": { "co2Saved": 45, "waterSaved": 120, "energySaved": 30 },
+      "views": 42,
+      "createdAt": "...",
+      "updatedAt": "..."
+    }
+  }
+}
+```
+
+#### POST /api/materials
+**Access:** Private
+**Request Body:**
+```json
+{
+  "title": "Wooden Pallets",
+  "description": "Industrial grade wooden pallets...",
+  "category": "60f7b3b3b3b3b3b3b3b3b3b3",
+  "subcategory": "Shipping Pallets",
+  "condition": "good",
+  "quantity": 50,
+  "unit": "pieces",
+  "images": [
+    { "url": "https://...", "isPrimary": true }
+  ],
+  "location": {
+    "type": "Point",
+    "coordinates": [72.8777, 19.076]  // [longitude, latitude]
+  },
+  "address": {
+    "street": "123 Industrial Area",
+    "landmark": "Near XYZ Factory",
+    "city": "Mumbai",
+    "state": "Maharashtra",
+    "pincode": "400001"
+  },
+  "price": 0,
+  "priceType": "free",
+  "tags": ["pallets", "wood", "shipping"],
+  "logisticsOptions": {
+    "selfPickup": true,
+    "deliveryAvailable": false
+  }
+}
+```
+**Response (201):**
+```json
+{
+  "success": true,
+  "message": "Material listed successfully.",
+  "data": {
+    "material": { ... }
+  }
+}
+```
+
+#### GET /api/materials/my-listings
+**Access:** Private
+**Query Parameters:** Same as GET /api/materials (pagination, filters)
+**Response:** Similar to GET /api/materials but filtered to current user's listings
+
+#### PATCH /api/materials/:id
+**Access:** Private (owner only)
+**Request Body:** Any fields from create, all optional
+
+#### DELETE /api/materials/:id
+**Access:** Private (owner only)
+
+---
+
+### Requests Endpoints
+
+#### POST /api/requests
+**Access:** Private
+**Request Body:**
+```json
+{
+  "materialId": "60f7b3b3b3b3b3b3b3b3b3b3",
+  "quantityRequested": 25,
+  "message": "I need these for my construction project...",
+  "purpose": "Building renovation",
+  "logisticsPreference": "self_pickup",
+  "proposedPickupDate": "2026-03-20T10:00:00Z",
+  "proposedPickupTimeSlot": "morning",
+  "offeredPrice": 100
+}
+```
+**Response (201):**
+```json
+{
+  "success": true,
+  "message": "Request submitted successfully.",
+  "data": {
+    "request": {
+      "_id": "...",
+      "material": { "_id": "...", "title": "...", "images": [...] },
+      "requester": { "_id": "...", "name": "...", "avatar": "..." },
+      "supplier": { "_id": "...", "name": "...", "avatar": "..." },
+      "quantityRequested": 25,
+      "status": "pending",
+      ...
+    }
+  }
+}
+```
+
+#### GET /api/requests
+**Access:** Private
+**Query Parameters:**
+- `type` ("incoming" | "outgoing" | "all") - Filter by user role
+- `status` ("pending" | "approved" | "rejected" | "cancelled" | "completed")
+- `page`, `limit` for pagination
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "requests": [...],
+    "pagination": { ... }
+  }
+}
+```
+
+#### GET /api/requests/:id
+**Access:** Private (requester or supplier only)
+
+#### PATCH /api/requests/:id/status
+**Access:** Private (supplier for approve/reject, requester for cancel)
+**Request Body:**
+```json
+{
+  "action": "approve" | "reject" | "cancel",
+  "message": "Optional response message"
+}
+```
+
+#### POST /api/requests/:id/messages
+**Access:** Private (requester or supplier)
+**Request Body:**
+```json
+{
+  "message": "Chat message content"
+}
+```
+
+#### POST /api/requests/:id/counter-offer
+**Access:** Private
+**Request Body:**
+```json
+{
+  "amount": 150,
+  "message": "I can offer this much"
+}
+```
+
+---
+
+### Transactions Endpoints
+
+#### GET /api/transactions
+**Access:** Private
+**Query Parameters:**
+- `status` (filter by status)
+- `role` ("supplier" | "receiver" | "all")
+- `page`, `limit`
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "transactions": [
+      {
+        "_id": "...",
+        "material": { "_id": "...", "title": "...", "images": [...] },
+        "supplier": { "_id": "...", "name": "...", "avatar": "..." },
+        "receiver": { "_id": "...", "name": "...", "avatar": "..." },
+        "quantityExchanged": 25,
+        "agreedPrice": 100,
+        "status": "completed",
+        "impactMetrics": {
+          "weightDiverted": 250,
+          "co2Saved": 45.5,
+          "landfillDiverted": 250
+        },
+        "verificationCode": "ABC12345",
+        "scheduledDate": "...",
+        "completedAt": "..."
+      }
+    ],
+    "pagination": { ... }
+  }
+}
+```
+
+#### GET /api/transactions/stats
+**Access:** Private
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "totalTransactions": 15,
+    "completedTransactions": 12,
+    "activeTransactions": 3,
+    "totalWeightDiverted": 2500,
+    "totalCo2Saved": 455,
+    "byStatus": {
+      "initiated": 1,
+      "scheduled": 1,
+      "in_progress": 1,
+      "completed": 12
+    }
+  }
+}
+```
+
+#### GET /api/transactions/:id
+**Access:** Private (supplier or receiver)
+
+#### PATCH /api/transactions/:id
+**Access:** Private
+**Request Body:**
+```json
+{
+  "status": "handed_over",
+  "supplierNotes": "Material handed over"
+}
+```
+
+#### POST /api/transactions/:id/verify
+**Access:** Private
+**Request Body:**
+```json
+{
+  "verificationCode": "ABC12345",
+  "role": "receiver"
+}
+```
+
+---
+
+### Logistics Endpoints
+
+#### POST /api/logistics/schedule
+**Access:** Private
+**Request Body:**
+```json
+{
+  "transactionId": "...",
+  "pickupDate": "2026-03-20",
+  "pickupTimeSlot": "morning",
+  "pickupAddress": { ... },
+  "deliveryAddress": { ... }
+}
+```
+
+#### GET /api/logistics
+**Access:** Private
+**Query Parameters:**
+- `role` ("requester" | "partner" | "all")
+- `status`
+- `page`, `limit`
+
+#### GET /api/logistics/:id
+**Access:** Private
+
+#### PATCH /api/logistics/:id
+**Access:** Private
+**Request Body:**
+```json
+{
+  "status": "picked_up",
+  "notes": "..."
+}
+```
+
+#### POST /api/logistics/:id/verify-pickup
+#### POST /api/logistics/:id/verify-delivery
+#### POST /api/logistics/:id/location
+#### POST /api/logistics/:id/assign
+
+---
+
+### Analytics Endpoints
+
+#### GET /api/analytics/dashboard
+**Access:** Private
+**Query Parameters:**
+- `period` ("week" | "month" | "year" | "all")
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "period": "month",
+    "user": {
+      "metrics": {
+        "reuseCount": 5,
+        "wasteDivertedKg": 250,
+        "co2SavedKg": 45.5,
+        "weightDivertedKg": 250
+      },
+      "activity": {
+        "activeListings": 3,
+        "asSupplier": 3,
+        "asReceiver": 2
+      },
+      "recentTransactions": [...]
+    },
+    "platform": {
+      "metrics": {
+        "reuseCount": 1234,
+        "wasteDivertedKg": 125000,
+        "co2SavedKg": 22500,
+        "weightDivertedKg": 125000
+      },
+      "stats": {
+        "activeListings": 5678,
+        "totalUsers": 2345
+      },
+      "environmentalEquivalents": {
+        "treesEquivalent": 1071.4,
+        "carsOffRoadDays": 1875,
+        "flightsAvoided": 250,
+        "homeEnergyDays": 1323.5
+      }
+    },
+    "categoryBreakdown": [
+      { "categoryId": "...", "categoryName": "Wood", "transactionCount": 45, "wasteDivertedKg": 12500, "co2SavedKg": 2250 }
+    ]
+  }
+}
+```
+
+#### GET /api/analytics/impact
+**Access:** Private
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "summary": {
+      "totalTransactions": 5,
+      "totalListings": 3,
+      "wasteDivertedKg": 250,
+      "co2SavedKg": 45.5,
+      "landfillDivertedKg": 250
+    },
+    "ranking": {
+      "position": 42,
+      "totalUsers": 2345,
+      "percentile": 98
+    },
+    "monthlyBreakdown": [...],
+    "recentTransactions": [...]
+  }
+}
+```
+
+#### GET /api/analytics/leaderboard
+**Access:** Public
+**Query Parameters:**
+- `metric` ("co2Saved" | "weightDiverted" | "totalTransactions")
+- `limit` (number, default: 20)
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "metric": "co2Saved",
+    "leaderboard": [
+      {
+        "rank": 1,
+        "id": "...",
+        "name": "...",
+        "avatar": "...",
+        "role": "seller",
+        "metrics": {
+          "co2SavedKg": 2500,
+          "wasteDivertedKg": 12500,
+          "totalTransactions": 45
+        }
+      }
+    ],
+    "userPosition": 42,
+    "totalParticipants": 2345
+  }
+}
+```
+
+#### GET /api/analytics/stats
+**Access:** Public
+#### GET /api/analytics/logistics
+**Access:** Private
+#### POST /api/analytics/events
+#### POST /api/analytics/calculate-impact
+
+---
+
+### AI Assistant Endpoints
+
+#### GET /api/ai/status
+**Access:** Private
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "isAvailable": true,
+    "model": "gpt-4o-mini",
+    "capabilities": ["chat", "analyze", "suggestions"]
+  }
+}
+```
+
+#### POST /api/ai/chat
+**Access:** Private
+**Request Body:**
+```json
+{
+  "message": "What can I do with old wooden pallets?",
+  "conversationId": "..." // optional, for continuing conversation
+}
+```
+
+#### POST /api/ai/analyze-material
+**Access:** Private
+**Request Body:**
+```json
+{
+  "materialId": "...",
+  "imageUrls": [...]
+}
+```
+
+#### POST /api/ai/reuse-suggestions
+**Access:** Private
+**Request Body:**
+```json
+{
+  "materialId": "...",
+  "context": "..."
+}
+```
+
+#### GET /api/ai/conversations
+#### GET /api/ai/conversations/:id
+#### POST /api/ai/conversations/:id/feedback
+#### DELETE /api/ai/conversations/:id
+
+================================================================================
+## FRONTEND ROUTES
+================================================================================
+
+```typescript
+// Public Routes
+"/"                    → LandingPage
+"/login"               → LoginPage
+"/signup"              → SignupPage
+"/browse"              → MarketplacePage (public view)
+
+// Protected Routes (require authentication)
+"/dashboard"           → DashboardPage (overview)
+"/dashboard/buyer"     → BuyerDashboardPage
+"/dashboard/seller"    → SellerDashboardPage
+"/marketplace"         → MarketplacePage (with filters, search, pagination)
+"/marketplace-map"     → MapDiscoveryPage (Leaflet map with clustering)
+"/material/:id"        → MaterialDetailsPage
+"/listings"            → ListingsPage (user's own listings)
+"/create-listing"      → CreateListingPage
+"/listings/:id"        → ListingDetailsPage
+"/requests"            → RequestsPage
+"/requests/create"     → CreateRequestPage
+"/transactions"        → TransactionsPage
+"/logistics"           → LogisticsPage
+"/impact"              → ImpactPage (sustainability metrics)
+"/ai-assistant"        → AiAssistantPage
+"/profile"             → ProfilePage
+"/notifications"       → NotificationsPage
+"/admin"               → AdminPage (admin only)
+```
+
+================================================================================
+## IMPORTANT NOTES FOR FRONTEND DEVELOPMENT
+================================================================================
+
+### 1. Coordinates Format
+- **MongoDB/Backend:** [longitude, latitude] - GeoJSON standard
+- **Leaflet/Frontend:** [latitude, longitude] - Leaflet standard
+- **ALWAYS CONVERT** when passing between systems
+
+### 2. Authentication
+- Store `accessToken` in localStorage for API requests
+- Use `Authorization: Bearer <token>` header
+- Refresh token flow: POST to /api/auth/refresh-token when 401 received
+- User session can be restored via GET /api/auth/me
+
+### 3. API Client Setup (Axios)
+```typescript
+// frontend/src/api/client.ts
+const apiClient = axios.create({
+  baseURL: "http://localhost:5001",
+  headers: { "Content-Type": "application/json" }
+});
+
+apiClient.interceptors.request.use(config => {
+  const token = localStorage.getItem("accessToken");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+```
+
+### 4. Standard API Response Format
+```typescript
+interface ApiResponse<T> {
+  success: boolean;
+  message?: string;
+  data?: T;
+}
+
+// Paginated responses
+interface PaginatedResponse<T> {
+  success: boolean;
+  data: {
+    items: T[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    }
+  }
+}
+```
+
+### 5. User Roles
+- **buyer**: Can browse marketplace, request materials, track requests
+- **seller**: Can list materials, manage listings, respond to requests
+- **ngo**: Similar to buyer, focus on donation materials
+- **logistics_partner**: Manage deliveries and pickups
+- **admin**: Full platform access
+
+### 6. Material Status Flow
+```
+draft → available → reserved/partially_reserved → completed/expired/removed
+```
+
+### 7. Request Status Flow
+```
+pending → approved → (creates transaction) → completed
+       → rejected
+       → cancelled
+       → expired (auto after 7 days)
+```
+
+### 8. Transaction Status Flow
+```
+initiated → scheduled → in_progress → handed_over → received → completed
+                                   → disputed → resolved
+         → cancelled
+```
+
+### 9. Key Environment Variables
+```env
+# Backend (.env)
+PORT=5001
+MONGODB_URI=mongodb://localhost:27017/circular_marketplace
+JWT_SECRET=your_jwt_secret
+JWT_REFRESH_SECRET=your_refresh_secret
+OPENAI_API_KEY=your_openai_key
+
+# Frontend (.env)
+VITE_API_URL=http://localhost:5001
+```
+
+### 10. Image Handling
+- Images are stored as URLs (can be Cloudinary, S3, or any CDN)
+- Material images include `isPrimary` flag
+- Fallback to category emoji if no image
+
+### 11. Search
+- Backend uses MongoDB text index on title, description, tags
+- Full-text search via `search` query parameter
+- Geospatial search via /api/materials/nearby endpoint
+
+================================================================================
+## EXISTING FRONTEND COMPONENTS
+================================================================================
+
+### Layouts
+- `DashboardLayout` - Main app layout with sidebar navigation
+- `AuthLayout` - Login/signup pages layout
+
+### Pages Implemented
+- `LandingPage` - Public landing page
+- `LoginPage` / `SignupPage` - Authentication
+- `DashboardPage` - Overview dashboard
+- `BuyerDashboardPage` - Buyer-specific dashboard
+- `SellerDashboardPage` - Seller-specific dashboard
+- `MarketplacePage` - Material listing with filters, search, pagination
+- `MapDiscoveryPage` - Leaflet map with clustering for nearby materials
+- `MaterialDetailsPage` - Single material view
+- Placeholder pages for: Listings, Requests, Transactions, Logistics, Impact, AI, Profile
+
+### Key Components
+- `MaterialCard` - Product card for marketplace grid
+- `MarkerClusterGroup` - Map clustering for materials
+- `FilterDropdown` - Reusable filter component
+- `LoadingSkeleton` - Loading states
+
+### Hooks
+- `useMaterials()` - Fetch materials with filters
+- `useCategories()` - Fetch categories
+- `useAppSelector` / `useAppDispatch` - Redux hooks
+
+### State Management (Redux)
+- `authSlice` - User authentication state
+- Store configured with Redux Toolkit
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================

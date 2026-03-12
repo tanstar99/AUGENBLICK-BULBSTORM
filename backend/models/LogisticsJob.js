@@ -296,7 +296,7 @@ logisticsJobSchema.index({ scheduledDate: 1, scheduledTimeSlot: 1 });
 logisticsJobSchema.index({ priority: 1, status: 1 });
 
 // Pre-save: Generate OTPs
-logisticsJobSchema.pre("save", function (next) {
+logisticsJobSchema.pre("save", function () {
   if (this.isNew) {
     // Generate 4-digit OTPs
     this.pickupOtp = {
@@ -308,7 +308,6 @@ logisticsJobSchema.pre("save", function (next) {
       expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000), // 48 hours
     };
   }
-  next();
 });
 
 // Virtual: Distance in km

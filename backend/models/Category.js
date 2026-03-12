@@ -84,21 +84,19 @@ const categorySchema = new mongoose.Schema(
   }
 );
 
-// Indexes
-categorySchema.index({ slug: 1 });
+// Indexes (slug has unique:true so no need to add separate index)
 categorySchema.index({ isActive: 1, sortOrder: 1 });
 categorySchema.index({ parent: 1 });
 categorySchema.index({ name: "text", description: "text" });
 
 // Generate slug from name before saving
-categorySchema.pre("save", function (next) {
+categorySchema.pre("save", function () {
   if (this.isModified("name") && !this.slug) {
     this.slug = this.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
   }
-  next();
 });
 
 // Virtual for child categories

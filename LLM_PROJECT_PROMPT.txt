@@ -1,0 +1,168 @@
+# LLM CONTEXT PROMPT FOR CIRCULAR ECONOMY MARKETPLACE PROJECT
+
+Copy and paste this entire prompt when starting a new LLM session to work on this project.
+
+---
+
+## PROJECT CONTEXT
+
+I am working on a **Circular Economy Marketplace** - a full-stack web application that connects surplus material owners (sellers) with seekers (buyers) to enable material reuse and reduce environmental waste. The platform tracks sustainability impact (CO2 saved, waste diverted) and provides AI-powered suggestions for material reuse.
+
+### Tech Stack
+
+**Backend (Already Built):**
+- Node.js + Express.js on port 5001
+- MongoDB with Mongoose ODM
+- JWT authentication (access + refresh tokens)
+- GeoJSON for geospatial queries (2dsphere indexes)
+- All API endpoints are complete and functional
+
+**Frontend (Partially Built):**
+- React 19 + TypeScript + Vite
+- TailwindCSS v4 (dark theme with emerald/teal accent colors)
+- Redux Toolkit for state management
+- React Router v7
+- Framer Motion for animations
+- Leaflet + react-leaflet for maps
+- Axios for API calls
+
+### Design System
+
+The app uses a **dark eco-tech theme**:
+- Background: `neutral-950` (#0a0a0a)
+- Card backgrounds: `neutral-900/50` with `border-neutral-800/50`
+- Primary accent: Emerald (`emerald-500`, `emerald-400`)
+- Secondary accent: Teal (`teal-500`)
+- Text: White, `neutral-300`, `neutral-400`, `neutral-500`
+- Gradients: `from-emerald-500 to-teal-500`
+- Rounded corners: `rounded-xl`, `rounded-2xl`
+- Glass effects: `backdrop-blur-sm`
+
+### Project Structure
+
+```
+root/
+├── API_DOCUMENTATION.txt    # Full API reference with request/response examples
+├── backend/                 # Node.js/Express server (COMPLETE)
+│   ├── controllers/         # Route handlers
+│   ├── models/              # Mongoose schemas
+│   ├── routes/              # API routes
+│   ├── middleware/          # Auth middleware
+│   └── utils/               # Helpers
+│
+└── frontend/                # React app (PARTIALLY COMPLETE)
+    └── src/
+        ├── api/
+        │   ├── client.ts    # Axios instance with auth interceptors
+        │   └── services.ts  # API service functions
+        ├── components/      # Reusable components
+        ├── config/
+        │   └── constants.ts # Routes, API endpoints, constants
+        ├── hooks/           # Custom hooks (useMaterials, useCategories, etc.)
+        ├── layouts/         # DashboardLayout, AuthLayout
+        ├── pages/           # Page components
+        ├── store/           # Redux store and slices
+        ├── routes/          # Route guards
+        └── types/           # TypeScript interfaces
+```
+
+### Key Data Models
+
+1. **User**: email, name, role (buyer/seller/ngo/logistics_partner/admin), location, address, impactStats, rating
+2. **Material**: title, description, category, condition, quantity, images, location (GeoJSON), address, price, priceType, status
+3. **MaterialRequest**: material, requester, supplier, quantityRequested, status, messages
+4. **Transaction**: request, material, supplier, receiver, status, impactMetrics (weightDiverted, co2Saved)
+5. **Category**: name, slug, icon (emoji), impactFactor
+
+### Critical Notes
+
+1. **Coordinates**: 
+   - MongoDB stores [longitude, latitude] (GeoJSON standard)
+   - Leaflet uses [latitude, longitude]
+   - ALWAYS convert between formats
+
+2. **Authentication**:
+   - Token stored in localStorage as `accessToken`
+   - API client adds `Authorization: Bearer <token>` header
+   - Use `GET /api/auth/me` to restore session
+
+3. **API Base URL**: `http://localhost:5001`
+
+4. **Standard Response Format**:
+   ```typescript
+   { success: boolean, message?: string, data?: T }
+   ```
+
+### Pages Completed
+
+- ✅ LandingPage, LoginPage, SignupPage
+- ✅ DashboardPage, BuyerDashboardPage, SellerDashboardPage
+- ✅ MarketplacePage (with search, filters, pagination)
+- ✅ MapDiscoveryPage (Leaflet map with clustering)
+- ✅ MaterialDetailsPage
+
+### Pages Needing Work
+
+- 🔲 ListingsPage - User's own listings management
+- 🔲 CreateListingPage - Form to create new material
+- 🔲 RequestsPage - View incoming/outgoing requests
+- 🔲 TransactionsPage - Track transactions
+- 🔲 LogisticsPage - Logistics management
+- 🔲 ImpactPage - Sustainability metrics visualization
+- 🔲 AiAssistantPage - Chat with AI
+- 🔲 ProfilePage - User profile management
+- 🔲 NotificationsPage
+
+---
+
+## HOW TO USE THIS PROJECT
+
+1. **Read API_DOCUMENTATION.txt** in the project root for complete API reference
+2. **Check existing code** in `frontend/src/api/services.ts` for API functions
+3. **Follow existing patterns** in completed pages (MarketplacePage, DashboardPage)
+4. **Use existing hooks** from `frontend/src/hooks/`
+5. **Maintain dark theme** using TailwindCSS classes described above
+
+---
+
+## EXAMPLE TASK FORMAT
+
+When asking the LLM to work on this project:
+
+```
+I'm continuing work on the Circular Economy Marketplace.
+
+Current task: Implement the [Page Name] page
+
+Requirements:
+- Route: /path
+- [List specific features]
+- Connect to backend API (no hardcoded data)
+- Use existing hooks and API services
+- Match the dark eco-theme styling
+
+Please read API_DOCUMENTATION.txt for API details.
+```
+
+---
+
+## RUNNING THE PROJECT
+
+```bash
+# Terminal 1 - Backend
+cd backend
+npm install
+npm run dev
+
+# Terminal 2 - Frontend
+cd frontend
+npm install
+npm run dev
+```
+
+Backend runs on: http://localhost:5001
+Frontend runs on: http://localhost:5173
+
+---
+
+This prompt provides all necessary context for an LLM to understand the project architecture, styling conventions, data models, and completed work. The detailed API documentation in API_DOCUMENTATION.txt serves as the complete reference for all backend endpoints.
