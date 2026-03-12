@@ -371,21 +371,24 @@ async function completeTransactionFlow(transaction, estimatedWeight) {
     status: "completed",
   });
 
-  // Calculate impact metrics
-  const weight = estimatedWeight || transaction.quantityExchanged;
+  // Calculate impact metrics using stored factors
+  const weight = estimatedWeight || transaction.impactMetrics.weightDiverted || transaction.quantityExchanged;
   const categoryImpactFactor = transaction.impactMetrics.categoryImpactFactor || 2.5;
+  const landfillDiversionFactor = transaction.impactMetrics.landfillDiversionFactor || 1.0;
+  const circularActionMultiplier = transaction.impactMetrics.circularActionMultiplier || 1.0;
 
   transaction.impactMetrics.weightDiverted = weight;
-  transaction.impactMetrics.co2Saved = weight * categoryImpactFactor;
-  transaction.impactMetrics.landfillDiverted = weight;
+  transaction.impactMetrics.co2Saved = weight * categoryImpactFactor * circularActionMultiplier;
+  transaction.impactMetrics.landfillDiverted = weight * landfillDiversionFactor;
   await transaction.save();
 
   // Update user impact stats
+  const co2Saved = weight * categoryImpactFactor * circularActionMultiplier;
   const impactUpdate = {
     $inc: {
       "impactStats.totalTransactions": 1,
-      "impactStats.materialsRescued": weight,
-      "impactStats.co2Saved": weight * categoryImpactFactor,
+      "impactStats.weightDiverted": weight,
+      "impactStats.co2Saved": co2Saved,
     },
   };
 

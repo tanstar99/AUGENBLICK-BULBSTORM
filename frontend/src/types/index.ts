@@ -101,7 +101,7 @@ export interface Material {
   condition: MaterialCondition;
   quantity: number;
   unit: string;
-  images: string[];
+  images: Array<{ url: string; publicId?: string; isPrimary?: boolean }>;
   location: {
     type: "Point";
     coordinates: [number, number];

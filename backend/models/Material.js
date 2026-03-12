@@ -112,6 +112,12 @@ const materialSchema = new mongoose.Schema(
     availableUntil: {
       type: Date,
     },
+    // Circular economy action type
+    circularActionType: {
+      type: String,
+      enum: ["reuse", "recycle", "upcycle", "repair", "compost", "donate"],
+      default: "reuse",
+    },
     // Weight for impact calculation
     estimatedWeight: {
       type: Number, // in kg

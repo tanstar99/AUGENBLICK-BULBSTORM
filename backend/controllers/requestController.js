@@ -1,6 +1,7 @@
 import MaterialRequest from "../models/MaterialRequest.js";
 import Material from "../models/Material.js";
 import Transaction from "../models/Transaction.js";
+import Category from "../models/Category.js";
 import mongoose from "mongoose";
 
 /**
@@ -372,6 +373,16 @@ export const updateRequestStatus = async (req, res) => {
       request.finalizedDate = finalizedDate ? new Date(finalizedDate) : request.proposedPickupDate;
       request.finalizedTimeSlot = finalizedTimeSlot || request.proposedPickupTimeSlot;
 
+      // Look up category impact factors and circular action type
+      const categoryDoc = await Category.findById(request.material.category).lean();
+      const co2PerKg = categoryDoc?.impactFactors?.co2PerKg || 2.5;
+      const landfillFactor = categoryDoc?.impactFactors?.landfillDiversionFactor || 1.0;
+      const circularActionType = request.material.circularActionType || "reuse";
+      const circularMultipliers = {
+        reuse: 1.0, recycle: 0.7, upcycle: 1.3, repair: 1.1, compost: 0.5, donate: 1.0,
+      };
+      const circularActionMultiplier = circularMultipliers[circularActionType] || 1.0;
+
       // Create a transaction
       const transaction = await Transaction.create({
         request: request._id,
@@ -387,6 +398,13 @@ export const updateRequestStatus = async (req, res) => {
         scheduledTimeSlot: request.finalizedTimeSlot,
         pickupAddress: request.material.address,
         deliveryAddress: request.deliveryAddress,
+        impactMetrics: {
+          weightDiverted: request.material.estimatedWeight || request.quantityRequested,
+          categoryImpactFactor: co2PerKg,
+          landfillDiversionFactor: landfillFactor,
+          circularActionMultiplier,
+          circularActionType,
+        },
         timeline: [
           {
             event: "transaction_created",

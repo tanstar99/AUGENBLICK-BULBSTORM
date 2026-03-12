@@ -331,7 +331,7 @@ const BuyerDashboardPage: React.FC = () => {
                 {nearbyMaterials.slice(0, 5).map((material: any) => (
                   <Link
                     key={material._id}
-                    to={`${ROUTES.MARKETPLACE}/${material._id}`}
+                    to={ROUTES.MATERIAL_DETAILS.replace(':id', material._id)}
                     className="flex items-center gap-4 p-3 rounded-xl bg-neutral-800/30 hover:bg-neutral-800/50 transition-colors group"
                   >
                     <div className="w-10 h-10 rounded-lg bg-neutral-800 flex items-center justify-center text-xl">

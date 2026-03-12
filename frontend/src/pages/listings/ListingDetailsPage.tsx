@@ -1,19 +1,11 @@
-// Listing Details Page
+// Listing Details Page - Redirects to Material Details
 import React from "react";
-import { Package } from "lucide-react";
-import { DashboardLayout } from "@/layouts";
-import { PagePlaceholder } from "@/components/PagePlaceholder";
+import { Navigate, useParams } from "react-router-dom";
+import { ROUTES } from "@/config/constants";
 
 const ListingDetailsPage: React.FC = () => {
-  return (
-    <DashboardLayout>
-      <PagePlaceholder
-        title="Listing Details"
-        description="View detailed information about this material listing."
-        icon={Package}
-      />
-    </DashboardLayout>
-  );
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={ROUTES.MATERIAL_DETAILS.replace(":id", id || "")} replace />;
 };
 
 export default ListingDetailsPage;

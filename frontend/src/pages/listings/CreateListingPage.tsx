@@ -56,8 +56,10 @@ const INITIAL_FORM_STATE: FormState = {
   category: "",
   subcategory: "",
   condition: "good",
+  circularActionType: "reuse",
   quantity: 1,
   unit: "pieces",
+  estimatedWeight: 0,
   priceType: "free",
   price: 0,
   images: [""],
@@ -272,6 +274,33 @@ const CreateListingPage: React.FC = () => {
                     </div>
                   </div>
                   <div>
+                    <label className="block text-sm font-medium text-neutral-400 mb-2">Circular Action Type</label>
+                    <p className="text-xs text-neutral-500 mb-3">How will this material contribute to the circular economy?</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {[
+                        { value: 'reuse', label: '♻️ Reuse', desc: 'Use as-is' },
+                        { value: 'recycle', label: '🔄 Recycle', desc: 'Send for recycling' },
+                        { value: 'upcycle', label: '⬆️ Upcycle', desc: 'Transform to higher value' },
+                        { value: 'repair', label: '🔧 Repair', desc: 'Fix & restore' },
+                        { value: 'compost', label: '🌱 Compost', desc: 'Organic composting' },
+                        { value: 'donate', label: '🤝 Donate', desc: 'Give to someone in need' },
+                      ].map(a => (
+                        <button
+                          key={a.value}
+                          onClick={() => handleInputChange('circularActionType', a.value)}
+                          className={`px-3 py-3 rounded-xl text-left border transition-all ${
+                            formData.circularActionType === a.value
+                              ? "bg-emerald-500/20 border-emerald-500"
+                              : "bg-neutral-800 border-neutral-700 hover:border-neutral-600"
+                          }`}
+                        >
+                          <div className={`text-sm font-medium ${formData.circularActionType === a.value ? 'text-emerald-400' : 'text-neutral-300'}`}>{a.label}</div>
+                          <div className="text-xs text-neutral-500 mt-0.5">{a.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-neutral-400 mb-2">Description</label>
                     <textarea
                       rows={4}
@@ -329,6 +358,20 @@ const CreateListingPage: React.FC = () => {
                         ))}
                       </div>
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-400 mb-2">Estimated Weight (kg)</label>
+                    <p className="text-xs text-neutral-500 mb-2">Used for environmental impact calculation. Enter total weight in kilograms.</p>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.1}
+                      placeholder="e.g. 50"
+                      value={formData.estimatedWeight || ''}
+                      onChange={(e) => handleInputChange('estimatedWeight', Number(e.target.value))}
+                      className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-xl text-white outline-none focus:border-emerald-500 transition-colors"
+                    />
                   </div>
 
                   {formData.priceType !== 'free' && (

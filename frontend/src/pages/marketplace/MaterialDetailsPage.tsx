@@ -40,7 +40,7 @@ interface Material {
   condition: string;
   priceType: string;
   price?: number;
-  images: string[];
+  images: Array<{ url: string; publicId?: string; isPrimary?: boolean }>;
   address?: {
     street?: string;
     city?: string;
@@ -244,7 +244,7 @@ const MaterialDetailsPage: React.FC = () => {
                     key={currentImageIndex}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    src={material.images[currentImageIndex]}
+                    src={material.images[currentImageIndex]?.url || material.images[currentImageIndex]}
                     alt={material.title}
                     className="w-full h-full object-cover"
                   />
@@ -304,7 +304,7 @@ const MaterialDetailsPage: React.FC = () => {
                     }`}
                   >
                     <img
-                      src={img}
+                      src={img?.url || img}
                       alt={`${material.title} ${idx + 1}`}
                       className="w-full h-full object-cover"
                     />

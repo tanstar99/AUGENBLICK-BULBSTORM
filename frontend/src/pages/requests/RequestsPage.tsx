@@ -8,14 +8,16 @@ import {
   CheckCircle, 
   XCircle, 
   Clock, 
-  MoreVertical,
   Check,
   X,
-  Plus,
   ArrowRight,
-  Package,
   User,
-  AlertCircle
+  AlertCircle,
+  Calendar,
+  Truck,
+  DollarSign,
+  Send,
+  Scale
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -49,6 +51,10 @@ const RequestsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"received" | "sent">("received");
   const [activeStatus, setActiveStatus] = useState("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [counterOfferAmount, setCounterOfferAmount] = useState("");
+  const [counterOfferMessage, setCounterOfferMessage] = useState("");
+  const [showCounterOffer, setShowCounterOffer] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const { data, loading, error, refetch } = useRequests({
     type: activeTab,
@@ -71,6 +77,28 @@ const RequestsPage: React.FC = () => {
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
+    setShowCounterOffer(false);
+    setCounterOfferAmount("");
+    setCounterOfferMessage("");
+  };
+
+  const handleCounterOffer = async (requestId: string) => {
+    if (!counterOfferAmount || Number(counterOfferAmount) <= 0) return;
+    setSubmitting(true);
+    try {
+      await requestsService.counterOffer(requestId, {
+        amount: Number(counterOfferAmount),
+        message: counterOfferMessage,
+      });
+      setShowCounterOffer(false);
+      setCounterOfferAmount("");
+      setCounterOfferMessage("");
+      refetch();
+    } catch {
+      alert("Failed to send counter offer.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const tabs = [
@@ -228,11 +256,6 @@ const RequestsPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="hidden lg:block text-right">
-                      <p className="text-xs text-neutral-500 font-medium">Quantity</p>
-                      <p className="text-sm text-white font-bold">{request.requestedQuantity || 1} units</p>
-                    </div>
-
                     <button className="p-2 text-neutral-500 hover:text-white transition-colors bg-neutral-800/50 rounded-lg">
                       <ArrowRight className={`w-5 h-5 transition-transform duration-300 ${expandedId === request._id ? 'rotate-90' : ''}`} />
                     </button>
@@ -249,16 +272,157 @@ const RequestsPage: React.FC = () => {
                       className="border-t border-neutral-800/80 bg-neutral-900/40"
                     >
                       <div className="p-6 space-y-6">
-                        {/* Message Content */}
-                        <div className="space-y-4">
-                          <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Initial Message</label>
-                          <div className="p-4 bg-black/30 rounded-2xl border border-neutral-800/50 italic text-neutral-300 leading-relaxed">
-                            "{request.message || "No message provided."}"
+                        {/* Request Details Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="p-3 bg-black/30 rounded-xl border border-neutral-800/50">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Scale className="w-3.5 h-3.5 text-blue-400" />
+                              <span className="text-[10px] text-neutral-500 font-bold uppercase">Qty Requested</span>
+                            </div>
+                            <p className="text-sm font-bold text-white">{request.quantityRequested} {request.material?.unit || 'units'}</p>
+                          </div>
+                          <div className="p-3 bg-black/30 rounded-xl border border-neutral-800/50">
+                            <div className="flex items-center gap-2 mb-1">
+                              <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                              <span className="text-[10px] text-neutral-500 font-bold uppercase">Offered Price</span>
+                            </div>
+                            <p className="text-sm font-bold text-white">{request.offeredPrice != null ? `₹${request.offeredPrice}` : 'Not specified'}</p>
+                          </div>
+                          <div className="p-3 bg-black/30 rounded-xl border border-neutral-800/50">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Truck className="w-3.5 h-3.5 text-amber-400" />
+                              <span className="text-[10px] text-neutral-500 font-bold uppercase">Logistics</span>
+                            </div>
+                            <p className="text-sm font-bold text-white capitalize">{(request.logisticsPreference || 'flexible').replace('_', ' ')}</p>
+                          </div>
+                          <div className="p-3 bg-black/30 rounded-xl border border-neutral-800/50">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                              <span className="text-[10px] text-neutral-500 font-bold uppercase">Pickup Date</span>
+                            </div>
+                            <p className="text-sm font-bold text-white">
+                              {request.proposedPickupDate 
+                                ? new Date(request.proposedPickupDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) 
+                                : 'Flexible'}
+                            </p>
                           </div>
                         </div>
 
+                        {/* Time Slot & Purpose */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {request.proposedPickupTimeSlot && request.proposedPickupTimeSlot !== 'flexible' && (
+                            <div className="p-3 bg-black/30 rounded-xl border border-neutral-800/50">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                                <span className="text-[10px] text-neutral-500 font-bold uppercase">Time Slot</span>
+                              </div>
+                              <p className="text-sm font-bold text-white capitalize">{request.proposedPickupTimeSlot}</p>
+                            </div>
+                          )}
+                          {request.purpose && (
+                            <div className="p-3 bg-black/30 rounded-xl border border-neutral-800/50 col-span-1 md:col-span-2">
+                              <div className="flex items-center gap-2 mb-1">
+                                <FileText className="w-3.5 h-3.5 text-purple-400" />
+                                <span className="text-[10px] text-neutral-500 font-bold uppercase">Purpose</span>
+                              </div>
+                              <p className="text-sm text-neutral-300">{request.purpose}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Message Content */}
+                        {request.message && (
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Message</label>
+                            <div className="p-4 bg-black/30 rounded-2xl border border-neutral-800/50 italic text-neutral-300 leading-relaxed">
+                              "{request.message}"
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Expiry Info */}
+                        {request.expiresAt && request.status === 'pending' && (
+                          <div className="flex items-center gap-2 text-xs text-neutral-500">
+                            <Clock className="w-3 h-3" />
+                            <span>Expires {new Date(request.expiresAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                          </div>
+                        )}
+
+                        {/* Counter Offers History */}
+                        {request.counterOffers && request.counterOffers.length > 0 && (
+                          <div className="space-y-3">
+                            <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Negotiation History</label>
+                            <div className="space-y-2">
+                              {request.counterOffers.map((offer, i) => (
+                                <div key={i} className="flex items-start gap-3 p-3 bg-black/20 rounded-xl border border-neutral-800/30">
+                                  <div className="w-8 h-8 bg-neutral-800 rounded-full flex items-center justify-center shrink-0">
+                                    <DollarSign className="w-4 h-4 text-amber-400" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center justify-between">
+                                      <p className="text-sm font-bold text-white">₹{offer.amount}</p>
+                                      <span className="text-[10px] text-neutral-500">
+                                        {new Date(offer.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                      </span>
+                                    </div>
+                                    {offer.message && <p className="text-xs text-neutral-400 mt-1">{offer.message}</p>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Counter Offer Form */}
+                        {request.status === 'pending' && (
+                          <div>
+                            {!showCounterOffer ? (
+                              <button
+                                onClick={() => setShowCounterOffer(true)}
+                                className="text-amber-400 text-sm font-semibold hover:underline flex items-center gap-1.5"
+                              >
+                                <DollarSign className="w-3.5 h-3.5" /> Make Counter Offer
+                              </button>
+                            ) : (
+                              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-4 bg-amber-500/5 rounded-xl border border-amber-500/10 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <h4 className="text-sm font-bold text-white">Counter Offer</h4>
+                                  <button onClick={() => setShowCounterOffer(false)} className="text-neutral-500 hover:text-white"><X className="w-4 h-4" /></button>
+                                </div>
+                                <div className="flex gap-3">
+                                  <div className="relative flex-1">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-sm">₹</span>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      placeholder="Amount"
+                                      value={counterOfferAmount}
+                                      onChange={(e) => setCounterOfferAmount(e.target.value)}
+                                      className="w-full pl-7 pr-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-xl text-white text-sm outline-none focus:border-amber-500 transition-colors"
+                                    />
+                                  </div>
+                                  <input
+                                    type="text"
+                                    placeholder="Optional message..."
+                                    value={counterOfferMessage}
+                                    onChange={(e) => setCounterOfferMessage(e.target.value)}
+                                    className="flex-[2] px-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-xl text-white text-sm outline-none focus:border-amber-500 transition-colors"
+                                  />
+                                  <button
+                                    onClick={() => handleCounterOffer(request._id)}
+                                    disabled={submitting || !counterOfferAmount}
+                                    className="px-4 py-2.5 bg-amber-500 text-neutral-950 font-bold rounded-xl text-sm hover:bg-amber-400 transition-all disabled:opacity-50 flex items-center gap-1"
+                                  >
+                                    <Send className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </motion.div>
+                            )}
+                          </div>
+                        )}
+
                         {/* Action Buttons */}
-                        <div className="flex flex-wrap items-center justify-between gap-4 pt-4">
+                        <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-neutral-800/50">
                           <div className="flex items-center gap-4">
                             <Link 
                               to={`${ROUTES.MATERIAL_DETAILS.replace(':id', request.material._id)}`}
@@ -300,16 +464,6 @@ const RequestsPage: React.FC = () => {
                                 <CheckCircle className="w-4 h-4" />
                                 <span className="text-sm font-bold">Request Approved</span>
                               </div>
-                            )}
-
-                            {activeTab === 'received' && (
-                              <Link
-                                to={`/chat/${request.requester._id}`} 
-                                className="p-2.5 bg-neutral-800 text-neutral-300 rounded-xl hover:bg-neutral-700 transition-all shadow-lg border border-neutral-700"
-                                title="Message Requester"
-                              >
-                                <MessageCircle className="w-5 h-5" />
-                              </Link>
                             )}
                           </div>
                         </div>

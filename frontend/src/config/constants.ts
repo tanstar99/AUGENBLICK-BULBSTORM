@@ -82,6 +82,7 @@ export const ROUTES = {
   LISTINGS: "/listings",
   CREATE_LISTING: "/create-listing",
   LISTING_DETAILS: "/listings/:id",
+  EDIT_LISTING: "/listings/:id/edit",
   
   // Protected - Transactions
   REQUESTS: "/requests",

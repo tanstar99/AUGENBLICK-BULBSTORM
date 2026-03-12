@@ -25,7 +25,7 @@ interface MaterialCardProps {
     condition: string;
     priceType: string;
     price?: number;
-    images: string[];
+    images: Array<{ url: string; publicId?: string; isPrimary?: boolean }>;
     address?: {
       city?: string;
       state?: string;
@@ -107,7 +107,7 @@ const getCategoryEmoji = (categoryName: string) => {
 export const MaterialCard: React.FC<MaterialCardProps> = ({ material, index = 0 }) => {
   const city = material.address?.city || material.location?.city || "Unknown";
   const availableQty = material.availableQuantity ?? material.quantity;
-  const imageUrl = material.images?.[0];
+  const imageUrl = material.images?.[0]?.url || (typeof material.images?.[0] === 'string' ? material.images[0] : undefined);
   const isAvailable = material.status === "available";
 
   return (

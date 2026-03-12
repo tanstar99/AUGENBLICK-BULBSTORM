@@ -66,8 +66,8 @@ const SellerDashboardPage: React.FC = () => {
     totalListings: listingsData?.pagination?.total ?? 0,
     activeListings: listingsData?.materials?.filter((m) => m.status === "active").length ?? 0,
     totalTransactions: transactionsData?.pagination?.total ?? 0,
-    wasteDiverted: analyticsData?.user?.wasteDiverted?.kg ?? 0,
-    co2Saved: analyticsData?.user?.co2Saved?.kg ?? 0,
+    wasteDiverted: analyticsData?.user?.metrics?.wasteDivertedKg ?? 0,
+    co2Saved: analyticsData?.user?.metrics?.co2SavedKg ?? 0,
     pendingRequests: requestsData?.requests?.filter((r) => r.status === "pending").length ?? 0,
   };
 
@@ -279,7 +279,7 @@ const SellerDashboardPage: React.FC = () => {
                 {listingsData?.materials?.slice(0, 5).map((listing) => (
                   <Link
                     key={listing._id}
-                    to={ROUTES.LISTING_DETAILS.replace(":id", listing._id)}
+                    to={ROUTES.MATERIAL_DETAILS.replace(":id", listing._id)}
                     className="block p-4 rounded-xl bg-neutral-800/30 border border-neutral-700/50 hover:border-emerald-500/30 transition-colors group"
                   >
                     <div className="flex items-start justify-between">
@@ -440,7 +440,7 @@ const SellerDashboardPage: React.FC = () => {
                             {transaction.material?.title || "Unknown Material"}
                           </h3>
                           <p className="text-xs text-neutral-500">
-                            to {transaction.receiver?.name || "Unknown"} • {transaction.quantity} {transaction.unit}
+                            to {transaction.receiver?.name || "Unknown"} • {transaction.quantityExchanged} {transaction.material?.unit || 'units'}
                           </p>
                         </div>
                         {getStatusBadge(transaction.status)}
@@ -453,10 +453,10 @@ const SellerDashboardPage: React.FC = () => {
                       )}
                       <div className="flex items-center justify-between mt-2 pt-2 border-t border-neutral-700/50">
                         <span className="text-xs text-neutral-500">
-                          {transaction.priceType === "free" ? "Free" : `$${transaction.agreedPrice}`}
+                          {transaction.agreedPrice ? `₹${transaction.agreedPrice}` : "Free"}
                         </span>
                         <span className="text-xs text-emerald-400">
-                          {transaction.impact?.co2SavedKg?.toFixed(1) || 0}kg CO₂ saved
+                          {(transaction.impactMetrics?.co2Saved || 0).toFixed(1)}kg CO₂ saved
                         </span>
                       </div>
                     </div>
@@ -580,25 +580,25 @@ const SellerDashboardPage: React.FC = () => {
                 {
                   icon: ArrowLeftRight,
                   label: "Materials Exchanged",
-                  value: analyticsData?.user?.reuseCount || 0,
+                  value: analyticsData?.user?.metrics?.reuseCount || 0,
                   color: "blue",
                 },
                 {
                   icon: Recycle,
                   label: "Waste Diverted",
-                  value: `${((analyticsData?.user?.wasteDiverted?.kg || 0) / 1000).toFixed(2)}t`,
+                  value: `${((analyticsData?.user?.metrics?.wasteDivertedKg || 0) / 1000).toFixed(2)}t`,
                   color: "teal",
                 },
                 {
                   icon: TreeDeciduous,
                   label: "CO₂ Saved",
-                  value: `${((analyticsData?.user?.co2Saved?.kg || 0)).toFixed(1)}kg`,
+                  value: `${(analyticsData?.user?.metrics?.co2SavedKg || 0).toFixed(1)}kg`,
                   color: "emerald",
                 },
                 {
                   icon: Leaf,
                   label: "Trees Equivalent",
-                  value: analyticsData?.user?.treesEquivalent || 0,
+                  value: analyticsData?.platform?.environmentalEquivalents?.treesEquivalent || 0,
                   color: "green",
                 },
               ].map((stat) => (

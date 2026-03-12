@@ -8,6 +8,7 @@ import {
   Leaf,
   Clock,
   FileText,
+  CheckCircle2,
   Droplets,
   Loader2,
   AlertCircle,
@@ -40,32 +41,35 @@ const DashboardPage: React.FC = () => {
   const stats = [
     { 
       label: "Active Listings", 
-      value: analyticsLoading ? "..." : formatNumber(analytics?.user?.activeListings), 
+      value: analyticsLoading ? "..." : formatNumber(analytics?.user?.activity?.activeListings), 
       icon: Package, 
-      change: analytics?.platform?.totalMaterials ? `${analytics.platform.totalMaterials} on platform` : "" 
-    },
-    { 
-      label: "Pending Requests", 
-      value: analyticsLoading ? "..." : formatNumber(analytics?.user?.pendingRequests), 
-      icon: FileText, 
-      change: "" 
+      change: analytics?.platform?.stats?.activeListings ? `${analytics.platform.stats.activeListings} on platform` : "" 
     },
     { 
       label: "Transactions", 
-      value: analyticsLoading ? "..." : formatNumber(analytics?.platform?.totalTransactions), 
-      icon: ArrowLeftRight, 
-      change: "" 
+      value: analyticsLoading ? "..." : formatNumber(analytics?.user?.metrics?.reuseCount), 
+      icon: FileText, 
+      change: analytics?.user?.activity?.asSupplier ? `${analytics.user.activity.asSupplier} as supplier` : "" 
+    },
+    { 
+      label: "Completed", 
+      value: analyticsLoading ? "..." : formatNumber((analytics?.user?.activity?.asSupplier || 0) + (analytics?.user?.activity?.asReceiver || 0)), 
+      icon: CheckCircle2, 
+      change: analytics?.user?.activity?.asReceiver ? `${analytics.user.activity.asReceiver} as receiver` : "" 
     },
     { 
       label: "CO₂ Saved", 
-      value: analyticsLoading ? "..." : formatWeight(analytics?.user?.co2Saved?.kg), 
+      value: analyticsLoading ? "..." : formatWeight(analytics?.user?.metrics?.co2SavedKg), 
       icon: Leaf, 
-      change: analytics?.user?.wasteDiverted?.kg ? `${formatWeight(analytics.user.wasteDiverted.kg)} diverted` : "" 
+      change: analytics?.user?.metrics?.wasteDivertedKg ? `${formatWeight(analytics.user.metrics.wasteDivertedKg)} diverted` : "" 
     },
   ];
 
   // Recent activity from API or placeholder
-  const recentActivity = analytics?.recentActivity?.slice(0, 3) || [
+  const recentActivity = analytics?.user?.recentTransactions?.slice(0, 3).map(t => ({
+    description: `${t.material || 'Material'} — ${t.status}`,
+    timestamp: t.date,
+  })) || [
     { description: "Dashboard loaded", timestamp: new Date().toISOString() },
     { description: "Viewing your metrics", timestamp: new Date().toISOString() },
     { description: "Check Marketplace for new listings", timestamp: new Date().toISOString() },
@@ -187,16 +191,16 @@ const DashboardPage: React.FC = () => {
                     CO₂ Prevented
                   </span>
                   <span className="text-lg font-semibold text-emerald-400">
-                    {formatWeight(impact?.summary?.co2Saved?.kg)}
+                    {formatWeight(impact?.summary?.co2SavedKg)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-neutral-400 flex items-center gap-2">
                     <Droplets className="w-4 h-4" />
-                    Water Saved
+                    Landfill Diverted
                   </span>
                   <span className="text-lg font-semibold text-blue-400">
-                    {impact?.summary?.waterSaved?.liters ? `${formatNumber(impact.summary.waterSaved.liters)} L` : "0 L"}
+                    {formatWeight(impact?.summary?.landfillDivertedKg)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -205,7 +209,7 @@ const DashboardPage: React.FC = () => {
                     Waste Diverted
                   </span>
                   <span className="text-lg font-semibold text-teal-400">
-                    {formatWeight(impact?.summary?.wasteDiverted?.kg)}
+                    {formatWeight(impact?.summary?.wasteDivertedKg)}
                   </span>
                 </div>
               </div>

@@ -62,7 +62,7 @@ const AiAssistantPage: React.FC = () => {
       if (response.success) {
         const assistantMessage = { 
           role: "assistant", 
-          content: response.data.message, 
+          content: response.data.message.content, 
           timestamp: new Date().toISOString() 
         };
         setLocalMessages(prev => [...prev, assistantMessage]);
@@ -189,7 +189,7 @@ const AiAssistantPage: React.FC = () => {
                 </h2>
                 <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                  Oracle Engine Online
+                  Oracle Engine Online • Knowledge Base Connected
                 </p>
               </div>
             </div>
@@ -213,8 +213,9 @@ const AiAssistantPage: React.FC = () => {
                 <div className="space-y-4">
                   <h3 className="text-2xl font-black text-white">How can I assist today?</h3>
                   <p className="text-neutral-400 text-sm leading-relaxed">
-                    I'm your Circular Economy guide. Ask me about material lifecycle, 
-                    CO₂ impact calculations, or creative ways to repurpose heritage waste.
+                    I'm your Circular Economy guide, now powered by the Augenblick RAG Engine. 
+                    Ask me about specific material lifecycle, localized Mumbai data, 
+                    or creative ways to repurpose heritage waste from our knowledge base.
                   </p>
                 </div>
                 

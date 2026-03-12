@@ -28,7 +28,9 @@ import {
   ListingsPage,
   CreateListingPage,
   ListingDetailsPage,
+  EditListingPage,
   RequestsPage,
+  CreateRequestPage,
   TransactionsPage,
   LogisticsPage,
   ImpactPage,
@@ -208,6 +210,14 @@ const App = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path={ROUTES.EDIT_LISTING}
+          element={
+            <ProtectedRoute>
+              <EditListingPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Requests - All authenticated users */}
         <Route
@@ -215,6 +225,14 @@ const App = () => {
           element={
             <ProtectedRoute>
               <RequestsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={ROUTES.CREATE_REQUEST}
+          element={
+            <ProtectedRoute>
+              <CreateRequestPage />
             </ProtectedRoute>
           }
         />

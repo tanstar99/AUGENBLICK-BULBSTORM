@@ -136,7 +136,10 @@ const transactionSchema = new mongoose.Schema(
       weightDiverted: { type: Number, default: 0 }, // kg
       co2Saved: { type: Number, default: 0 },       // kg CO2
       landfillDiverted: { type: Number, default: 0 }, // kg
-      categoryImpactFactor: { type: Number, default: 1 },
+      categoryImpactFactor: { type: Number, default: 2.5 },
+      landfillDiversionFactor: { type: Number, default: 1.0 },
+      circularActionMultiplier: { type: Number, default: 1.0 },
+      circularActionType: { type: String },
     },
     // Dispute details
     dispute: {
@@ -309,11 +312,13 @@ transactionSchema.methods.completeTransaction = async function () {
   this.status = "completed";
   this.completedAt = new Date();
 
-  // Calculate impact metrics (simplified - actual calculation in service)
-  // This will be enhanced in the Impact service
+  // Preliminary impact calc using stored factors (overwritten by completeTransactionFlow in controller)
   const baseWeight = this.impactMetrics.weightDiverted || this.quantityExchanged;
-  this.impactMetrics.co2Saved = baseWeight * (this.impactMetrics.categoryImpactFactor || 2.5);
-  this.impactMetrics.landfillDiverted = baseWeight;
+  const categoryFactor = this.impactMetrics.categoryImpactFactor || 2.5;
+  const circularMultiplier = this.impactMetrics.circularActionMultiplier || 1.0;
+  const landfillFactor = this.impactMetrics.landfillDiversionFactor || 1.0;
+  this.impactMetrics.co2Saved = baseWeight * categoryFactor * circularMultiplier;
+  this.impactMetrics.landfillDiverted = baseWeight * landfillFactor;
 
   this.timeline.push({
     event: "transaction_completed",

@@ -205,7 +205,7 @@ const ListingsPage: React.FC = () => {
                   <div className="relative aspect-[16/9] bg-neutral-800 overflow-hidden">
                     {material.images?.[0] ? (
                       <img 
-                        src={material.images[0]} 
+                        src={material.images[0]?.url || material.images[0]} 
                         alt={material.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
@@ -228,7 +228,7 @@ const ListingsPage: React.FC = () => {
                         <ExternalLink className="w-5 h-5" />
                       </Link>
                       <Link
-                        to={`/listings/edit/${material._id}`}
+                        to={ROUTES.EDIT_LISTING.replace(':id', material._id)}
                         className="p-3 bg-emerald-500 text-neutral-950 rounded-full hover:scale-110 transition-transform"
                         title="Edit Listing"
                       >

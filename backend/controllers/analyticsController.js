@@ -59,7 +59,7 @@ export const getDashboard = async (req, res) => {
 
     // User's active listings
     const userActiveListings = await Material.countDocuments({
-      owner: userId,
+      listedBy: userId,
       status: "available",
     });
 

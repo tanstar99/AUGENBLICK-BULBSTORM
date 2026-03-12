@@ -63,31 +63,51 @@ function useFetch<T>(
 // =============================================
 
 interface DashboardData {
+  period: string;
   user: {
-    reuseCount: number;
-    wasteDiverted: { kg: number };
-    co2Saved: { kg: number };
-    treesEquivalent: number;
-    activeListings: number;
-    pendingRequests: number;
+    metrics: {
+      reuseCount: number;
+      wasteDivertedKg: number;
+      co2SavedKg: number;
+      weightDivertedKg: number;
+    };
+    activity: {
+      activeListings: number;
+      asSupplier: number;
+      asReceiver: number;
+    };
+    recentTransactions: Array<{
+      id: string;
+      material: string;
+      status: string;
+      impactMetrics: Record<string, number>;
+      date: string;
+    }>;
   };
   platform: {
-    totalUsers: number;
-    totalMaterials: number;
-    totalTransactions: number;
-    totalCO2Saved: number;
-    totalWasteDiverted: number;
+    metrics: {
+      reuseCount: number;
+      wasteDivertedKg: number;
+      co2SavedKg: number;
+      weightDivertedKg: number;
+    };
+    stats: {
+      activeListings: number;
+      totalUsers: number;
+    };
+    environmentalEquivalents: {
+      treesEquivalent: number;
+      carsOffRoadDays: number;
+      flightsAvoided: number;
+      homeEnergyDays: number;
+    };
   };
   categoryBreakdown: Array<{
-    category: string;
-    count: number;
-    weight: number;
-    co2Saved: number;
-  }>;
-  recentActivity: Array<{
-    type: string;
-    description: string;
-    timestamp: string;
+    categoryId: string;
+    categoryName: string;
+    transactionCount: number;
+    wasteDivertedKg: number;
+    co2SavedKg: number;
   }>;
 }
 
@@ -240,23 +260,48 @@ interface RequestsData {
     material: {
       _id: string;
       title: string;
-      category: { name: string };
       images: string[];
+      price?: number;
+      priceType?: string;
+      unit?: string;
+      availableQuantity?: number;
+      address?: Record<string, string>;
     };
     requester: {
       _id: string;
       name: string;
       avatar?: string;
+      phone?: string;
     };
     supplier: {
       _id: string;
       name: string;
       avatar?: string;
+      phone?: string;
     };
     status: string;
     message?: string;
-    requestedQuantity?: number;
-    proposedPrice?: number;
+    quantityRequested: number;
+    purpose?: string;
+    logisticsPreference?: string;
+    proposedPickupDate?: string;
+    proposedPickupTimeSlot?: string;
+    offeredPrice?: number;
+    agreedPrice?: number;
+    counterOffers?: Array<{
+      by: string;
+      amount: number;
+      message?: string;
+      createdAt: string;
+    }>;
+    messages?: Array<{
+      sender: string;
+      content: string;
+      createdAt: string;
+      isRead: boolean;
+    }>;
+    transaction?: string;
+    expiresAt?: string;
     createdAt: string;
     updatedAt: string;
   }>;
@@ -282,36 +327,51 @@ interface TransactionsData {
     material: {
       _id: string;
       title: string;
-      category: { name: string };
       images: string[];
+      address?: string;
+      unit?: string;
     };
     supplier: {
       _id: string;
       name: string;
+      avatar?: string;
+      rating?: number;
+      phone?: string;
     };
     receiver: {
       _id: string;
       name: string;
+      avatar?: string;
+      rating?: number;
+      phone?: string;
+    };
+    request?: {
+      message?: string;
+      purpose?: string;
     };
     status: string;
-    quantity: number;
-    unit: string;
+    quantityExchanged: number;
     agreedPrice?: number;
-    priceType: string;
-    impact: {
-      weightKg: number;
-      co2SavedKg: number;
+    impactMetrics?: {
+      weightDiverted: number;
+      co2Saved: number;
+      landfillDiverted: number;
+      categoryImpactFactor: number;
     };
     userRole?: "supplier" | "receiver";
+    canConfirm?: boolean;
+    supplierConfirmed?: boolean;
+    receiverConfirmed?: boolean;
     scheduledDate?: string;
     completedAt?: string;
     createdAt: string;
   }>;
   pagination: {
-    total: number;
     page: number;
-    pages: number;
     limit: number;
+    total: number;
+    pages: number;
+    hasMore: boolean;
   };
 }
 

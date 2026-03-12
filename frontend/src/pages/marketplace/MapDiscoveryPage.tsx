@@ -186,7 +186,7 @@ interface Material {
   quantity: number;
   availableQuantity?: number;
   unit: string;
-  images: string[];
+  images: Array<{ url: string; publicId?: string; isPrimary?: boolean }>;
   location: {
     type: string;
     coordinates: [number, number]; // [lng, lat]
@@ -904,7 +904,7 @@ const MapDiscoveryPage: React.FC = () => {
                 {selectedMaterial.images && selectedMaterial.images.length > 0 ? (
                   <div className="relative aspect-video bg-neutral-800 rounded-xl overflow-hidden">
                     <img
-                      src={selectedMaterial.images[currentImageIndex]}
+                      src={selectedMaterial.images[currentImageIndex]?.url || selectedMaterial.images[currentImageIndex]}
                       alt={selectedMaterial.title}
                       className="w-full h-full object-cover"
                     />

@@ -153,7 +153,7 @@ export const createMaterial = async (data: Record<string, unknown>) => {
  * Update a material listing
  */
 export const updateMaterial = async (id: string, data: Record<string, unknown>) => {
-  const response = await apiClient.put(`${API_ENDPOINTS.MATERIALS.BASE}/${id}`, data);
+  const response = await apiClient.patch(`${API_ENDPOINTS.MATERIALS.BASE}/${id}`, data);
   return response.data;
 };
 
@@ -214,8 +214,10 @@ export const getRequest = async (id: string) => {
 export const createRequest = async (data: {
   materialId: string;
   message?: string;
+  purpose?: string;
   requestedQuantity?: number;
   proposedPrice?: number;
+  logisticsPreference?: "self_pickup" | "delivery" | "flexible";
   proposedSchedule?: {
     date: string;
     timeSlot: string;
@@ -225,8 +227,10 @@ export const createRequest = async (data: {
   const payload = {
     materialId: data.materialId,
     message: data.message,
-    quantityRequested: data.requestedQuantity, // Backend expects quantityRequested
+    purpose: data.purpose,
+    quantityRequested: data.requestedQuantity,
     offeredPrice: data.proposedPrice,
+    logisticsPreference: data.logisticsPreference,
     proposedPickupDate: data.proposedSchedule?.date,
     proposedPickupTimeSlot: data.proposedSchedule?.timeSlot,
   };
@@ -242,9 +246,14 @@ export const updateRequestStatus = async (
   action: "approve" | "reject" | "cancel",
   message?: string
 ) => {
+  const statusMap: Record<string, string> = {
+    approve: "approved",
+    reject: "rejected",
+    cancel: "cancelled",
+  };
   const response = await apiClient.patch(`${API_ENDPOINTS.REQUESTS.BASE}/${id}/status`, {
-    action,
-    message,
+    status: statusMap[action],
+    responseMessage: message,
   });
   return response.data;
 };
@@ -447,6 +456,10 @@ export const requestsService = {
   create: createRequest,
   updateStatus: updateRequestStatus,
   addMessage: addRequestMessage,
+  counterOffer: async (id: string, data: { amount: number; message?: string }) => {
+    const response = await apiClient.post(`/api/requests/${id}/counter-offer`, data);
+    return response.data;
+  },
 };
 
 export const transactionsService = {
