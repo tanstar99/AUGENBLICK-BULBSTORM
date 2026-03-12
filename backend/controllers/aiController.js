@@ -115,27 +115,59 @@ export const chat = async (req, res) => {
     const aiContext = {
       material: material
         ? {
-            title: material.title,
-            description: material.description,
-            category: material.category?.name,
-            condition: material.condition,
-            quantity: material.quantity,
-            unit: material.unit,
-            address: material.address,
-          }
+          title: material.title,
+          description: material.description,
+          category: material.category?.name,
+          condition: material.condition,
+          quantity: material.quantity,
+          unit: material.unit,
+          address: material.address,
+        }
         : null,
       userPreferences: userContext.preferences,
     };
 
-    // Call AI
-    const aiResponse = await aiClient.chat({
-      messages: messageHistory,
-      context: aiContext,
-      type: type.replace("_assistant", "").replace("_", " "),
-      model: conversation.modelConfig.model,
-      temperature: conversation.modelConfig.temperature,
-      maxTokens: conversation.modelConfig.maxTokens,
-    });
+    let aiResponse;
+
+    // Use RAG for general assistant if enabled and relevant
+    if (type === "general_assistant" && !materialId) {
+      try {
+        const ragStart = Date.now();
+        const { queryRAG } = await import("../utils/ragClient.js");
+        const ragResponse = await queryRAG(message);
+        const ragTime = Date.now() - ragStart;
+
+        console.log(`RAG query completed in ${ragTime}ms, success: ${ragResponse.success}, has answer: ${!!ragResponse.answer}`);
+
+        if (ragResponse.success && ragResponse.answer) {
+          aiResponse = {
+            content: ragResponse.answer,
+            usage: {
+              prompt_tokens: Math.ceil(message.length / 4),
+              completion_tokens: Math.ceil(ragResponse.answer.length / 4),
+              total_tokens: Math.ceil((message.length + ragResponse.answer.length) / 4),
+            },
+            model: "llama-3.1-8b-instant-rag",
+            responseTime: ragTime,
+            source: "rag-service",
+          };
+        }
+      } catch (ragError) {
+        console.error("RAG integration error, falling back to standard AI:", ragError.message);
+      }
+    }
+
+    // Call standard AI if RAG didn't provide an answer
+    if (!aiResponse) {
+      aiResponse = await aiClient.chat({
+        messages: messageHistory,
+        context: aiContext,
+        type: type.replace("_assistant", "").replace("_", " "),
+        model: conversation.modelConfig.model,
+        temperature: conversation.modelConfig.temperature,
+        maxTokens: conversation.modelConfig.maxTokens,
+      });
+    }
 
     // Add assistant response
     const assistantMessage = {
@@ -152,7 +184,7 @@ export const chat = async (req, res) => {
     conversation.usage.totalTokens += aiResponse.usage?.total_tokens || 0;
     conversation.usage.totalMessages += 2;
     conversation.usage.totalResponseTime += aiResponse.responseTime || 0;
-    
+
     // Estimate cost (rough estimate for GPT-4)
     const promptCost = (aiResponse.usage?.prompt_tokens || 0) * 0.00003;
     const completionCost = (aiResponse.usage?.completion_tokens || 0) * 0.00006;
