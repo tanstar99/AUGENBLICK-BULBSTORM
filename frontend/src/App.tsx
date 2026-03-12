@@ -1,20 +1,19 @@
-import React from "react";
 import { Routes, Route } from "react-router-dom";
-import SignUp from "./components/SignUp.jsx";
-import Login from "./components/Login.jsx";
+import SignUp from "./components/SignUp";
+import Login from "./components/Login";
 import { ToastContainer } from "react-toastify";
-import Home from "./pages/Home.jsx";
-import UserDataContext from "./context/UserDataContext.jsx";
-import { useDispatch, useSelector } from "react-redux";
+import Home from "./pages/Home";
+import UserDataContext from "./context/UserDataContext";
+import { useSelector } from "react-redux";
 import "react-toastify/dist/ReactToastify.css";
-import { useNavigate } from "react-router-dom";
 import { Navigate } from "react-router-dom";
+import { Layout } from "./components/Layout";
+
 const App = () => {
-  
-  const userData = useSelector((state) => state.user.userData);
-  const navigate = useNavigate();
+  const userData = useSelector((state: any) => state.user.userData);
+
   return (
-    <div>
+    <Layout>
       <ToastContainer
         position="top-left"
         hideProgressBar={true}
@@ -33,8 +32,11 @@ const App = () => {
         <Route path="/" element={<Home />} />
         <Route path="/signup" element={userData ? <Navigate to="/" /> : <SignUp />} />
         <Route path="/login" element={userData ? <Navigate to="/" /> : <Login />} />
+        {/* Placeholders for new routes added to Layout nav */}
+        <Route path="/marketplace" element={<div className="text-white p-8">Marketplace Coming Soon</div>} />
+        <Route path="/passports" element={<div className="text-white p-8">Passports Coming Soon</div>} />
       </Routes>
-    </div>
+    </Layout>
   );
 };
 

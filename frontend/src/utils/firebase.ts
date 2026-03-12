@@ -15,7 +15,20 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+let app: any;
+let auth: any;
 const provider = new GoogleAuthProvider();
+
+try {
+  // Only attempt initialization if API key exists in env
+  if (firebaseConfig.apiKey) {
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+  } else {
+    console.warn("Firebase API key missing from environment variables. Firebase auth will be unavailable.");
+  }
+} catch (error) {
+  console.error("Firebase initialization failed:", error);
+}
+
 export { app, auth, provider };
