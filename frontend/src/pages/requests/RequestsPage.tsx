@@ -17,7 +17,15 @@ import {
   Truck,
   DollarSign,
   Send,
-  Scale
+  Scale,
+  CreditCard,
+  Smartphone,
+  Building2,
+  Wallet,
+  PackageCheck,
+  ShieldCheck,
+  Loader2,
+  Lock
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -48,6 +56,343 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
+// ─── Payment Gateway Modal ──────────────────────────────────────────────────
+type PayMethod = "upi" | "card" | "netbanking" | "wallet" | "cod";
+
+const PaymentGatewayModal: React.FC<{
+  request: any;
+  onClose: () => void;
+  onPaid: () => void;
+}> = ({ request, onClose, onPaid }) => {
+  const [method, setMethod] = useState<PayMethod>("upi");
+  const [paying, setPaying] = useState(false);
+  const [paid, setPaid] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  // UPI
+  const [upiId, setUpiId] = useState("");
+  const [upiMode, setUpiMode] = useState<"id" | "qr">("id");
+
+  // Card
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardName, setCardName] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvv, setCardCvv] = useState("");
+
+  // Net banking
+  const [selBank, setSelBank] = useState("");
+
+  // Wallet
+  const [selWallet, setSelWallet] = useState("");
+
+  const amount = request.agreedPrice ?? request.offeredPrice ?? 0;
+
+  const formatCard = (v: string) =>
+    v.replace(/\D/g, "").slice(0, 16).replace(/(\d{4})/g, "$1 ").trim();
+  const formatExpiry = (v: string) => {
+    const d = v.replace(/\D/g, "").slice(0, 4);
+    return d.length >= 3 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
+  };
+
+  const canPay = () => {
+    if (method === "upi") return upiMode === "qr" || upiId.includes("@");
+    if (method === "card") return cardNumber.replace(/\s/g, "").length === 16 && cardName && cardExpiry.includes("/") && cardCvv.length >= 3;
+    if (method === "netbanking") return !!selBank;
+    if (method === "wallet") return !!selWallet;
+    return true; // cod
+  };
+
+  const handlePay = async () => {
+    setPaying(true);
+    setProgress(0);
+    // Simulate processing with progress
+    for (let i = 0; i <= 100; i += 5) {
+      await new Promise(r => setTimeout(r, 60));
+      setProgress(i);
+    }
+    setPaying(false);
+    setPaid(true);
+  };
+
+  const banks = [
+    "State Bank of India", "HDFC Bank", "ICICI Bank", "Axis Bank",
+    "Kotak Mahindra Bank", "Punjab National Bank", "Bank of Baroda",
+    "Canara Bank", "IndusInd Bank", "Yes Bank",
+  ];
+
+  const wallets = [
+    { id: "paytm", label: "Paytm", color: "#00BAF2", emoji: "💙" },
+    { id: "phonepe", label: "PhonePe", color: "#5F259F", emoji: "💜" },
+    { id: "gpay", label: "Google Pay", color: "#4285F4", emoji: "🔵" },
+    { id: "amazon", label: "Amazon Pay", color: "#FF9900", emoji: "🟠" },
+  ];
+
+  const methodTabs: { id: PayMethod; label: string; icon: any }[] = [
+    { id: "upi", label: "UPI", icon: Smartphone },
+    { id: "card", label: "Card", icon: CreditCard },
+    { id: "netbanking", label: "Net Banking", icon: Building2 },
+    { id: "wallet", label: "Wallet", icon: Wallet },
+    { id: "cod", label: "Pay Later", icon: PackageCheck },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        onClick={e => e.stopPropagation()}
+        className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden"
+      >
+        {/* Header */}
+        <div className="bg-gradient-to-r from-emerald-900/40 to-teal-900/30 p-5 border-b border-neutral-800 flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Lock className="w-4 h-4 text-emerald-400" />
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Secure Payment</span>
+            </div>
+            <h2 className="text-lg font-bold text-white">{request.material?.title}</h2>
+            <p className="text-sm text-neutral-400">{request.quantityRequested} {request.material?.unit || "units"}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] text-neutral-500 uppercase">Amount</p>
+            <p className="text-2xl font-bold text-white">₹{amount.toLocaleString()}</p>
+          </div>
+        </div>
+
+        {paid ? (
+          // ── Success screen ──
+          <div className="p-10 flex flex-col items-center gap-4">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 200, damping: 12 }}
+              className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center"
+            >
+              <CheckCircle className="w-10 h-10 text-emerald-400" />
+            </motion.div>
+            <h3 className="text-xl font-bold text-white">Payment Successful!</h3>
+            <p className="text-neutral-400 text-sm text-center">
+              ₹{amount.toLocaleString()} paid via {methodTabs.find(m => m.id === method)?.label}.
+              Your transaction has been initiated.
+            </p>
+            <div className="w-full p-4 bg-neutral-800/50 rounded-xl border border-neutral-700 mt-2">
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-neutral-400">Transaction ID</span>
+                <span className="text-white font-mono text-xs">TXN{Date.now().toString().slice(-10)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-neutral-400">Status</span>
+                <span className="text-emerald-400 font-bold">Confirmed</span>
+              </div>
+            </div>
+            <button
+              onClick={() => { onPaid(); onClose(); }}
+              className="w-full mt-2 px-6 py-3 bg-emerald-500 text-neutral-950 font-bold rounded-xl hover:bg-emerald-400 transition-colors"
+            >
+              Done
+            </button>
+          </div>
+        ) : (
+          <div className="p-5 space-y-5">
+            {/* Method Tabs */}
+            <div className="grid grid-cols-5 gap-1 bg-black/30 p-1 rounded-xl border border-neutral-800">
+              {methodTabs.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setMethod(tab.id)}
+                  className={`flex flex-col items-center gap-1 py-2 rounded-lg text-[10px] font-bold transition-all ${
+                    method === tab.id
+                      ? "bg-neutral-700 text-emerald-400 shadow"
+                      : "text-neutral-500 hover:text-neutral-300"
+                  }`}
+                >
+                  <tab.icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* UPI */}
+            {method === "upi" && (
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <button onClick={() => setUpiMode("id")} className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${upiMode === "id" ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" : "border-neutral-700 text-neutral-500"}`}>UPI ID</button>
+                  <button onClick={() => setUpiMode("qr")} className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${upiMode === "qr" ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" : "border-neutral-700 text-neutral-500"}`}>Scan QR</button>
+                </div>
+                {upiMode === "id" ? (
+                  <div>
+                    <label className="text-xs text-neutral-400 block mb-1.5">Enter UPI ID</label>
+                    <input
+                      type="text"
+                      placeholder="yourname@upi"
+                      value={upiId}
+                      onChange={e => setUpiId(e.target.value)}
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+                    />
+                    <p className="text-[10px] text-neutral-500 mt-2">Supports PayTM, PhonePe, GPay, BHIM UPI</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-3 py-2">
+                    <div className="bg-white p-4 rounded-xl">
+                      <QRCode
+                        value={`upi://pay?pa=augenblick@upi&pn=Augenblick&am=${amount}&tn=${encodeURIComponent(request.material?.title || "Payment")}`}
+                        size={140}
+                      />
+                    </div>
+                    <p className="text-xs text-neutral-400 text-center">Scan with any UPI app to pay ₹{amount}</p>
+                    <button onClick={() => setPaid(true)} className="text-xs text-emerald-400 underline">I've completed the payment</button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Card */}
+            {method === "card" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-neutral-400 block mb-1.5">Card Number</label>
+                  <input
+                    type="text"
+                    placeholder="0000 0000 0000 0000"
+                    value={cardNumber}
+                    onChange={e => setCardNumber(formatCard(e.target.value))}
+                    maxLength={19}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white text-sm font-mono focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-neutral-400 block mb-1.5">Cardholder Name</label>
+                  <input
+                    type="text"
+                    placeholder="Name on card"
+                    value={cardName}
+                    onChange={e => setCardName(e.target.value)}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-neutral-400 block mb-1.5">Expiry</label>
+                    <input
+                      type="text"
+                      placeholder="MM/YY"
+                      value={cardExpiry}
+                      onChange={e => setCardExpiry(formatExpiry(e.target.value))}
+                      maxLength={5}
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-400 block mb-1.5">CVV</label>
+                    <input
+                      type="password"
+                      placeholder="•••"
+                      value={cardCvv}
+                      onChange={e => setCardCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-neutral-500 flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> 256-bit SSL encrypted. Your card data is never stored.</p>
+              </div>
+            )}
+
+            {/* Net Banking */}
+            {method === "netbanking" && (
+              <div className="space-y-3">
+                <label className="text-xs text-neutral-400 block">Select Your Bank</label>
+                <div className="grid grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-1">
+                  {banks.map(bank => (
+                    <button
+                      key={bank}
+                      onClick={() => setSelBank(bank)}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-medium text-left transition-all border ${
+                        selBank === bank
+                          ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
+                          : "bg-neutral-800 border-neutral-700 text-neutral-300 hover:border-neutral-600"
+                      }`}
+                    >
+                      {bank}
+                    </button>
+                  ))}
+                </div>
+                {selBank && <p className="text-xs text-neutral-400">You'll be redirected to <span className="text-white font-medium">{selBank}</span>'s secure portal.</p>}
+              </div>
+            )}
+
+            {/* Wallet */}
+            {method === "wallet" && (
+              <div className="space-y-3">
+                <label className="text-xs text-neutral-400 block">Choose Wallet</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {wallets.map(w => (
+                    <button
+                      key={w.id}
+                      onClick={() => setSelWallet(w.id)}
+                      className={`py-4 px-4 rounded-xl text-sm font-bold transition-all border flex items-center gap-3 ${
+                        selWallet === w.id
+                          ? "border-emerald-500/40 bg-emerald-500/10 text-white"
+                          : "bg-neutral-800 border-neutral-700 text-neutral-300 hover:border-neutral-600"
+                      }`}
+                    >
+                      <span className="text-xl">{w.emoji}</span> {w.label}
+                    </button>
+                  ))}
+                </div>
+                {selWallet && <p className="text-xs text-neutral-400">Log in with your <span className="text-white font-medium">{wallets.find(w => w.id === selWallet)?.label}</span> account to complete payment.</p>}
+              </div>
+            )}
+
+            {/* Cash on Delivery / Pay Later */}
+            {method === "cod" && (
+              <div className="p-5 bg-amber-500/5 border border-amber-500/20 rounded-xl space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-amber-500/10 rounded-full flex items-center justify-center">
+                    <PackageCheck className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">Pay on Handover</p>
+                    <p className="text-xs text-neutral-400">Pay ₹{amount} when the material is handed over.</p>
+                  </div>
+                </div>
+                <p className="text-xs text-neutral-500">Cash, bank transfer, or cheque accepted at the time of exchange.</p>
+              </div>
+            )}
+
+            {/* Pay button */}
+            <div className="space-y-3 pt-1">
+              {paying && (
+                <div className="w-full bg-neutral-800 rounded-full h-1.5 overflow-hidden">
+                  <motion.div
+                    className="h-full bg-emerald-500 rounded-full"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              )}
+              <button
+                onClick={handlePay}
+                disabled={!canPay() || paying}
+                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-neutral-950 font-bold rounded-xl hover:from-emerald-400 hover:to-teal-400 transition-all disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20"
+              >
+                {paying ? (
+                  <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</>
+                ) : (
+                  <><Lock className="w-4 h-4" /> Pay ₹{amount.toLocaleString()}</>
+                )}
+              </button>
+              <button onClick={onClose} className="w-full py-2 text-neutral-500 text-sm hover:text-neutral-300 transition-colors">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Optimistic message type (shown immediately after send, before next poll)
 interface OptimisticMessage {
   _id: string;
@@ -61,11 +406,10 @@ const RequestsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"received" | "sent">("received");
   const [activeStatus, setActiveStatus] = useState("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [counterOfferAmount, setCounterOfferAmount] = useState("");
-  const [counterOfferMessage, setCounterOfferMessage] = useState("");
-  const [showCounterOffer, setShowCounterOffer] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
+  const [paymentReqId, setPaymentReqId] = useState<string | null>(null);
+  const [paidIds, setPaidIds] = useState<Set<string>>(new Set());
   // Optimistic messages keyed by requestId — cleared on next successful poll
   const [optimistic, setOptimistic] = useState<Record<string, OptimisticMessage[]>>({});
 
@@ -145,30 +489,9 @@ const RequestsPage: React.FC = () => {
   const toggleExpand = (id: string) => {
     const next = expandedId === id ? null : id;
     setExpandedId(next);
-    setShowCounterOffer(false);
-    setCounterOfferAmount("");
-    setCounterOfferMessage("");
     setChatMessage("");
   };
 
-  const handleCounterOffer = async (requestId: string) => {
-    if (!counterOfferAmount || Number(counterOfferAmount) <= 0) return;
-    setSubmitting(true);
-    try {
-      await requestsService.counterOffer(requestId, {
-        amount: Number(counterOfferAmount),
-        message: counterOfferMessage,
-      });
-      setShowCounterOffer(false);
-      setCounterOfferAmount("");
-      setCounterOfferMessage("");
-      refetch();
-    } catch {
-      alert("Failed to send counter offer.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const tabs = [
     { id: "received", label: "Received Requests", icon: ArrowDownLeft },
@@ -442,54 +765,6 @@ const RequestsPage: React.FC = () => {
                           </div>
                         )}
 
-                        {/* Counter Offer Form */}
-                        {request.status === 'pending' && (
-                          <div>
-                            {!showCounterOffer ? (
-                              <button
-                                onClick={() => setShowCounterOffer(true)}
-                                className="text-amber-400 text-sm font-semibold hover:underline flex items-center gap-1.5"
-                              >
-                                <DollarSign className="w-3.5 h-3.5" /> Make Counter Offer
-                              </button>
-                            ) : (
-                              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-4 bg-amber-500/5 rounded-xl border border-amber-500/10 space-y-3">
-                                <div className="flex items-center justify-between">
-                                  <h4 className="text-sm font-bold text-white">Counter Offer</h4>
-                                  <button onClick={() => setShowCounterOffer(false)} className="text-neutral-500 hover:text-white"><X className="w-4 h-4" /></button>
-                                </div>
-                                <div className="flex gap-3">
-                                  <div className="relative flex-1">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-sm">₹</span>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      placeholder="Amount"
-                                      value={counterOfferAmount}
-                                      onChange={(e) => setCounterOfferAmount(e.target.value)}
-                                      className="w-full pl-7 pr-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-xl text-white text-sm outline-none focus:border-amber-500 transition-colors"
-                                    />
-                                  </div>
-                                  <input
-                                    type="text"
-                                    placeholder="Optional message..."
-                                    value={counterOfferMessage}
-                                    onChange={(e) => setCounterOfferMessage(e.target.value)}
-                                    className="flex-[2] px-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-xl text-white text-sm outline-none focus:border-amber-500 transition-colors"
-                                  />
-                                  <button
-                                    onClick={() => handleCounterOffer(request._id)}
-                                    disabled={submitting || !counterOfferAmount}
-                                    className="px-4 py-2.5 bg-amber-500 text-neutral-950 font-bold rounded-xl text-sm hover:bg-amber-400 transition-all disabled:opacity-50 flex items-center gap-1"
-                                  >
-                                    <Send className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </motion.div>
-                            )}
-                          </div>
-                        )}
-
                         {/* Chat Messages */}
                         <div className="space-y-3 mt-6 pt-2">
                           <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest flex items-center gap-2">
@@ -591,21 +866,31 @@ const RequestsPage: React.FC = () => {
                             )}
 
                             {request.status === 'approved' && (
-                              <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-3 flex-wrap">
                                 <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/5 px-4 py-2 rounded-xl border border-emerald-500/20">
                                   <CheckCircle className="w-4 h-4" />
                                   <span className="text-sm font-bold">Request Approved</span>
                                 </div>
-                                <div className="bg-white p-2 flex items-center justify-center rounded-xl shadow-sm">
-                                  <QRCode 
-                                    value={JSON.stringify({
-                                      id: request._id,
-                                      material: request.material?.title || 'Unknown',
-                                      status: 'approved'
-                                    })}
-                                    size={80}
-                                  />
-                                </div>
+                                {/* Show Pay Now only to buyer side (sent tab) when there's a price and it's not a free/donate listing */}
+                                {activeTab === 'sent' && request.material.priceType !== 'free' && (request.agreedPrice ?? request.offeredPrice ?? 0) > 0 && (
+                                  paidIds.has(request._id) ? (
+                                    <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/10 px-4 py-2.5 rounded-xl border border-emerald-500/30 text-sm font-bold">
+                                      <CheckCircle className="w-4 h-4" /> Payment Done · ₹{(request.agreedPrice ?? request.offeredPrice ?? 0).toLocaleString()}
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => setPaymentReqId(request._id)}
+                                      className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-neutral-950 font-bold rounded-xl hover:from-emerald-400 hover:to-teal-400 transition-all shadow-lg shadow-emerald-900/20 flex items-center gap-2 text-sm"
+                                    >
+                                      <CreditCard className="w-4 h-4" /> Pay Now · ₹{(request.agreedPrice ?? request.offeredPrice ?? 0).toLocaleString()}
+                                    </button>
+                                  )
+                                )}
+                                {activeTab === 'sent' && (request.material.priceType === 'free' || (request.agreedPrice ?? request.offeredPrice ?? 0) === 0) && (
+                                  <div className="flex items-center gap-2 text-teal-400 bg-teal-500/5 px-4 py-2 rounded-xl border border-teal-500/20 text-sm font-bold">
+                                    <PackageCheck className="w-4 h-4" /> Free Exchange
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -619,6 +904,19 @@ const RequestsPage: React.FC = () => {
           </div>
         )}
       </div>
+      {/* Payment Gateway Modal */}
+      <AnimatePresence>
+        {paymentReqId && (() => {
+          const req = data?.requests.find(r => r._id === paymentReqId);
+          return req ? (
+            <PaymentGatewayModal
+              request={req}
+              onClose={() => setPaymentReqId(null)}
+              onPaid={() => setPaidIds(prev => new Set(prev).add(paymentReqId!))}
+            />
+          ) : null;
+        })()}
+      </AnimatePresence>
     </DashboardLayout>
   );
 };

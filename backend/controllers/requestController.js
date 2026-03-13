@@ -72,11 +72,11 @@ export const createRequest = async (req, res) => {
       });
     }
 
-    // Check for existing pending request
+    // Check for existing pending request (approved requests already have a transaction, so allow re-requesting)
     const existingRequest = await MaterialRequest.findOne({
       material: materialId,
       requester: req.userId,
-      status: { $in: ["pending", "approved"] },
+      status: "pending",
     });
 
     if (existingRequest) {
