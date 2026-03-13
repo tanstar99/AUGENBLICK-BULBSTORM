@@ -310,7 +310,7 @@ async function handleSchedule(req, res, transaction, isSupplier, { scheduledDate
  */
 async function handleConfirm(req, res, transaction, isSupplier, isReceiver, { estimatedWeight }) {
   // Must be in appropriate status
-  if (!["scheduled", "in_progress", "handed_over", "received"].includes(transaction.status)) {
+  if (!["initiated", "scheduled", "in_progress", "handed_over", "received"].includes(transaction.status)) {
     return res.status(400).json({
       success: false,
       message: `Cannot confirm transaction with status: ${transaction.status}`,
