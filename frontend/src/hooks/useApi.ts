@@ -39,7 +39,6 @@ function useFetch<T>(
 
   const fetch = useCallback(async () => {
     try {
-      setLoading(true);
       setError(null);
       const response = await fetchFn();
       setData(response.data);
@@ -51,7 +50,11 @@ function useFetch<T>(
     }
   }, dependencies);
 
+  // Only show the loading skeleton when the query itself changes (tab switch,
+  // filter change, etc.). Manual refetch() calls — e.g. polling — update data
+  // silently without resetting to loading state, so the UI never flickers.
   useEffect(() => {
+    setLoading(true);
     fetch();
   }, [fetch]);
 
