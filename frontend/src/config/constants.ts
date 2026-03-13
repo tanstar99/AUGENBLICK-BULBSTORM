@@ -97,6 +97,7 @@ export const ROUTES = {
   
   // Protected - AI
   AI_ASSISTANT: "/ai-assistant",
+  AI_IMAGE_STUDIO: "/ai-image-studio",
   
   // Admin
   ADMIN: "/admin",

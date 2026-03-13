@@ -3,6 +3,8 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
+import path from "path";
+import { fileURLToPath } from "url";
 
 // Import routes
 import authRoutes from "./routes/authRoutes.js";
@@ -12,6 +14,7 @@ import transactionRoutes from "./routes/transactionRoutes.js";
 import logisticsRoutes from "./routes/logisticsRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
+import imageStudioRoutes from "./routes/imageStudioRoutes.js";
 
 // Initialize Express app
 const app = express();
@@ -23,6 +26,7 @@ app.use(
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    exposedHeaders: ["X-Image-Path"],
   })
 );
 
@@ -71,6 +75,12 @@ app.use("/api/transactions", transactionRoutes);
 app.use("/api/logistics", logisticsRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/image-studio", imageStudioRoutes);
+
+// Static serving for AI Image Studio 3D models
+const __filename_app = fileURLToPath(import.meta.url);
+const __dirname_app = path.dirname(__filename_app);
+app.use("/image-studio-models", express.static(path.resolve(__dirname_app, "image-studio-models")));
 
 // Placeholder routes (to be implemented)
 // import userRoutes from "./routes/userRoutes.js";

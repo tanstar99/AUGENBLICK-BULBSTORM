@@ -21,6 +21,7 @@ import {
   Shield,
   ShoppingBag,
   Briefcase,
+  Image as ImageIcon,
 } from "lucide-react";
 import { useAppSelector, useAppDispatch } from "@/hooks/useRedux";
 import { logout } from "@/store/authSlice";
@@ -77,7 +78,8 @@ const getNavItems = (role: UserRole): NavItem[] => {
   // Impact & AI for all
   items.push(
     { name: "Impact", path: ROUTES.IMPACT, icon: TrendingUp },
-    { name: "AI Assistant", path: ROUTES.AI_ASSISTANT, icon: MessageSquare }
+    { name: "AI Assistant", path: ROUTES.AI_ASSISTANT, icon: MessageSquare },
+    { name: "AI Image Studio", path: ROUTES.AI_IMAGE_STUDIO, icon: ImageIcon }
   );
 
   // Admin specific

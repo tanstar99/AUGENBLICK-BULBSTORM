@@ -22,6 +22,7 @@ export { default as TransactionsPage } from "./transactions/TransactionsPage";
 export { default as LogisticsPage } from "./logistics/LogisticsPage";
 export { default as ImpactPage } from "./impact/ImpactPage";
 export { default as AiAssistantPage } from "./ai/AiAssistantPage";
+export { default as AiImageStudioPage } from "./ai/AiImageStudioPage";
 export { default as ProfilePage } from "./profile/ProfilePage";
 export { default as NotificationsPage } from "./notifications/NotificationsPage";
 export { default as AdminPage } from "./admin/AdminPage";

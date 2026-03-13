@@ -35,6 +35,7 @@ import {
   LogisticsPage,
   ImpactPage,
   AiAssistantPage,
+  AiImageStudioPage,
   ProfilePage,
   NotificationsPage,
   AdminPage,
@@ -273,6 +274,16 @@ const App = () => {
           element={
             <ProtectedRoute>
               <AiAssistantPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* AI Image Studio - All authenticated users */}
+        <Route
+          path={ROUTES.AI_IMAGE_STUDIO}
+          element={
+            <ProtectedRoute>
+              <AiImageStudioPage />
             </ProtectedRoute>
           }
         />
