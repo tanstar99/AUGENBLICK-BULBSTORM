@@ -58,7 +58,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   <Leaf className="w-full h-full text-neutral-950" />
                 </div>
                 <span className="font-bold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-emerald-100 to-teal-100">
-                  Augenblick
+                  Circula
                 </span>
               </div>
 

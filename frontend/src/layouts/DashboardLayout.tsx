@@ -127,7 +127,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               animate={{ opacity: 1 }}
               className="font-bold text-lg text-white"
             >
-              Augenblick
+              Circula
             </motion.span>
           )}
         </Link>

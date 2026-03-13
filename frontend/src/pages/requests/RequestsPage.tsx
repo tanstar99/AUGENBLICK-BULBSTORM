@@ -236,7 +236,7 @@ const PaymentGatewayModal: React.FC<{
                   <div className="flex flex-col items-center gap-3 py-2">
                     <div className="bg-white p-4 rounded-xl">
                       <QRCode
-                        value={`upi://pay?pa=augenblick@upi&pn=Augenblick&am=${amount}&tn=${encodeURIComponent(request.material?.title || "Payment")}`}
+                        value={`upi://pay?pa=circula@upi&pn=Circula&am=${amount}&tn=${encodeURIComponent(request.material?.title || "Payment")}`}
                         size={140}
                       />
                     </div>
@@ -628,6 +628,25 @@ const RequestsPage: React.FC = () => {
                         </span>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Unique Request QR Code */}
+                  <div
+                    className="hidden sm:flex flex-col items-center gap-1.5 shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                    title={`Request ID: ${request._id}`}
+                  >
+                    <div className="bg-white p-1.5 rounded-lg shadow-md shadow-black/20 ring-1 ring-neutral-700/50">
+                      <QRCode
+                        value="https://wa.me/918764494969?text=Start"
+                        size={56}
+                        bgColor="#ffffff"
+                        fgColor="#171717"
+                      />
+                    </div>
+                    <span className="text-[8px] text-neutral-500 font-mono tracking-tight">
+                      {request._id.slice(-6).toUpperCase()}
+                    </span>
                   </div>
 
                   {/* User Info */}

@@ -123,7 +123,7 @@ def rag_query():
         contexts = [item["metadata"]["text"] for item in query_response["matches"] if "text" in item["metadata"]]
         context_str = "\n\n".join(contexts) if contexts else ""
 
-        prompt = f"""You are Circula AI, the sustainability assistant for the Augenblick circular economy marketplace in Mumbai.
+        prompt = f"""You are Circula AI, the sustainability assistant for the CIRCULA circular economy marketplace in Mumbai.
 
 Your role is to help people reuse materials instead of discarding them by:
 • suggesting reuse ideas
@@ -131,6 +131,7 @@ Your role is to help people reuse materials instead of discarding them by:
 • explaining sustainability benefits of reuse
 
 Use ONLY the information provided in the context.
+Do not mention knowledge base or context in your response.
 
 If the answer cannot be determined from the context, respond:
 "I don't know based on the provided knowledge base."

@@ -54,7 +54,7 @@ export const PublicLayout: React.FC<PublicLayoutProps> = ({
                   <Leaf className="w-full h-full text-neutral-950" />
                 </div>
                 <span className="font-bold text-xl lg:text-2xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-emerald-100 to-teal-100">
-                  Augenblick
+                  Circula
                 </span>
               </Link>
 
@@ -160,7 +160,7 @@ export const PublicLayout: React.FC<PublicLayoutProps> = ({
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center p-1">
                   <Leaf className="w-full h-full text-neutral-950" />
                 </div>
-                <span className="font-bold text-lg text-white">Augenblick</span>
+                <span className="font-bold text-lg text-white">Circula</span>
               </Link>
               <p className="text-sm text-neutral-400">
                 Building a circular economy, one material at a time.
@@ -200,7 +200,7 @@ export const PublicLayout: React.FC<PublicLayoutProps> = ({
 
           <div className="mt-12 pt-8 border-t border-neutral-800 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-neutral-500">
-              © {new Date().getFullYear()} Augenblick. All rights reserved.
+              © {new Date().getFullYear()} Circula. All rights reserved.
             </p>
             <div className="flex items-center gap-4">
               <span className="text-xs text-neutral-600">Built for a sustainable future</span>

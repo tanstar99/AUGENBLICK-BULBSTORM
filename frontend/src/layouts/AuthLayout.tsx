@@ -48,7 +48,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
               <Leaf className="w-full h-full text-neutral-950" />
             </div>
             <span className="font-bold text-2xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-emerald-100 to-teal-100">
-              Augenblick
+              Circula
             </span>
           </Link>
 
@@ -97,7 +97,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
 
           {/* Footer */}
           <div className="text-sm text-neutral-600">
-            © {new Date().getFullYear()} Augenblick. Building a sustainable future.
+            © {new Date().getFullYear()} Circula. Building a sustainable future.
           </div>
         </div>
       </div>
@@ -111,7 +111,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center p-1.5">
                 <Leaf className="w-full h-full text-neutral-950" />
               </div>
-              <span className="font-bold text-xl text-white">Augenblick</span>
+              <span className="font-bold text-xl text-white">Circula</span>
             </Link>
           </div>
 

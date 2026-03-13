@@ -213,7 +213,7 @@ const AiAssistantPage: React.FC = () => {
                 <div className="space-y-4">
                   <h3 className="text-2xl font-black text-white">How can I assist today?</h3>
                   <p className="text-neutral-400 text-sm leading-relaxed">
-                    I'm your Circular Economy guide, now powered by the Augenblick RAG Engine. 
+                    I'm your Circular Economy guide, now powered by the Circula RAG Engine. 
                     Ask me about specific material lifecycle, localized Mumbai data, 
                     or creative ways to repurpose heritage waste from our knowledge base.
                   </p>
