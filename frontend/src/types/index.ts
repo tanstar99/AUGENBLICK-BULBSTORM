@@ -155,12 +155,28 @@ export interface MaterialRequest {
   _id: string;
   material: Material | string;
   requester: User | string;
+  supplier: User | string;
   message: string;
   requestedQuantity: number;
   proposedPrice?: number;
   status: RequestStatus;
   respondedAt?: string;
   responseMessage?: string;
+  logisticsPreference?: "self_pickup" | "delivery" | "flexible";
+  proposedPickupDate?: string;
+  proposedPickupTimeSlot?: string;
+  counterOffers?: Array<{
+    amount: number;
+    message?: string;
+    createdAt: string;
+  }>;
+  messages?: Array<{
+    _id: string;
+    sender: User | string;
+    content: string;
+    createdAt: string;
+    isRead: boolean;
+  }>;
   expiresAt: string;
   createdAt: string;
   updatedAt: string;

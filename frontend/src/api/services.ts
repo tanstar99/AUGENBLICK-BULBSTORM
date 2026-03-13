@@ -263,7 +263,7 @@ export const updateRequestStatus = async (
  */
 export const addRequestMessage = async (id: string, message: string) => {
   const response = await apiClient.post(`${API_ENDPOINTS.REQUESTS.BASE}/${id}/messages`, {
-    message,
+    content: message,
   });
   return response.data;
 };

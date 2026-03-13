@@ -546,8 +546,8 @@ export const addMessage = async (req, res) => {
 
     // Only supplier or requester can message
     if (
-      request.requester.toString() !== req.userId &&
-      request.supplier.toString() !== req.userId
+      request.requester.toString() !== req.userId.toString() &&
+      request.supplier.toString() !== req.userId.toString()
     ) {
       return res.status(403).json({
         success: false,
@@ -602,8 +602,8 @@ export const addCounterOffer = async (req, res) => {
 
     // Only supplier or requester can counter offer
     if (
-      request.requester.toString() !== req.userId &&
-      request.supplier.toString() !== req.userId
+      request.requester.toString() !== req.userId.toString() &&
+      request.supplier.toString() !== req.userId.toString()
     ) {
       return res.status(403).json({
         success: false,

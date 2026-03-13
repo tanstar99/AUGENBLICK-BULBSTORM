@@ -1,5 +1,5 @@
 // Requests Page - Manage incoming and outgoing material requests
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   FileText, 
   ArrowUpRight, 
@@ -48,6 +48,15 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
+// Optimistic message type (shown immediately after send, before next poll)
+interface OptimisticMessage {
+  _id: string;
+  sender: string;
+  content: string;
+  createdAt: string;
+  optimistic: true;
+}
+
 const RequestsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"received" | "sent">("received");
   const [activeStatus, setActiveStatus] = useState("all");
@@ -56,11 +65,68 @@ const RequestsPage: React.FC = () => {
   const [counterOfferMessage, setCounterOfferMessage] = useState("");
   const [showCounterOffer, setShowCounterOffer] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  // Optimistic messages keyed by requestId — cleared on next successful poll
+  const [optimistic, setOptimistic] = useState<Record<string, OptimisticMessage[]>>({});
 
   const { data, loading, error, refetch } = useRequests({
     type: activeTab,
     status: activeStatus === "all" ? undefined : activeStatus
   });
+
+  // Poll for new messages every 4 seconds while a card is open
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (expandedId) {
+      interval = setInterval(() => {
+        refetch();
+      }, 4000);
+    }
+    return () => clearInterval(interval);
+  }, [expandedId, refetch]);
+
+  const handleSendChatMessage = async (requestId: string) => {
+    if (!chatMessage.trim()) return;
+    const text = chatMessage.trim();
+    setChatMessage("");
+
+    // Determine my user ID from the current request data
+    const request = data?.requests.find(r => r._id === requestId);
+    const myId = request
+      ? (activeTab === 'sent' ? request.requester._id : request.supplier._id)
+      : 'me';
+
+    // Add optimistic message immediately so sender sees it at once
+    const tempMsg: OptimisticMessage = {
+      _id: `opt-${Date.now()}`,
+      sender: myId,
+      content: text,
+      createdAt: new Date().toISOString(),
+      optimistic: true,
+    };
+    setOptimistic(prev => ({
+      ...prev,
+      [requestId]: [...(prev[requestId] || []), tempMsg],
+    }));
+
+    setSubmitting(true);
+    try {
+      await requestsService.addMessage(requestId, text);
+      // After confirmed, clear optimistic msgs and refetch (backend now has the msg)
+      setOptimistic(prev => ({ ...prev, [requestId]: [] }));
+      refetch();
+    } catch {
+      // On error: revert optimistic message and restore input
+      setOptimistic(prev => ({
+        ...prev,
+        [requestId]: (prev[requestId] || []).filter(m => m._id !== tempMsg._id),
+      }));
+      setChatMessage(text);
+      alert("Failed to send message. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleAction = async (requestId: string, action: 'approve' | 'reject' | 'cancel') => {
     try {
@@ -77,10 +143,12 @@ const RequestsPage: React.FC = () => {
   };
 
   const toggleExpand = (id: string) => {
-    setExpandedId(expandedId === id ? null : id);
+    const next = expandedId === id ? null : id;
+    setExpandedId(next);
     setShowCounterOffer(false);
     setCounterOfferAmount("");
     setCounterOfferMessage("");
+    setChatMessage("");
   };
 
   const handleCounterOffer = async (requestId: string) => {
@@ -422,8 +490,70 @@ const RequestsPage: React.FC = () => {
                           </div>
                         )}
 
+                        {/* Chat Messages */}
+                        <div className="space-y-3 mt-6 pt-2">
+                          <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest flex items-center gap-2">
+                            <MessageCircle className="w-4 h-4 text-blue-400" /> Discussion
+                          </label>
+                          <div className="bg-neutral-950/50 rounded-2xl border border-neutral-800/50 overflow-hidden flex flex-col">
+                            {/* Messages Area */}
+                            <div className="p-4 max-h-60 overflow-y-auto space-y-4 flex flex-col-reverse">
+                              <div className="flex flex-col space-y-4">
+                                {(() => {
+                                  const myId = activeTab === 'sent' ? request.requester._id : request.supplier._id;
+                                  // Merge confirmed backend messages with any pending optimistic ones
+                                  const confirmed = (request.messages || []) as Array<{ _id?: string; sender: string; content: string; createdAt: string }>;
+                                  const pending = optimistic[request._id] || [];
+                                  const msgs = [...confirmed, ...pending];
+                                  if (msgs.length === 0) {
+                                    return <p className="text-center text-sm text-neutral-500 italic py-4">No messages yet. Start the conversation!</p>;
+                                  }
+                                  return msgs.map((msg, i) => {
+                                    const senderId = typeof msg.sender === 'object' ? (msg.sender as any)._id : msg.sender;
+                                    const isMine = senderId === myId;
+                                    return (
+                                      <div key={msg._id || i} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+                                        <div className={`px-4 py-2 rounded-2xl max-w-[85%] text-sm ${
+                                          isMine
+                                            ? 'bg-emerald-500 text-neutral-950 rounded-br-sm shadow-md shadow-emerald-900/10'
+                                            : 'bg-neutral-800 text-neutral-200 rounded-bl-sm border border-neutral-700/50'
+                                        }`}>
+                                          {msg.content}
+                                        </div>
+                                        <span className="text-[10px] text-neutral-500 mt-1 font-medium">
+                                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                      </div>
+                                    );
+                                  });
+                                })()}
+                              </div>
+                            </div>
+                            {/* Message Input */}
+                            <div className="p-3 bg-neutral-900/80 border-t border-neutral-800/50 flex gap-3">
+                              <input
+                                type="text"
+                                placeholder="Type a message..."
+                                value={chatMessage}
+                                onChange={(e) => setChatMessage(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSendChatMessage(request._id);
+                                }}
+                                className="flex-1 bg-black/50 border border-neutral-700/50 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-colors placeholder:text-neutral-600"
+                              />
+                              <button
+                                onClick={() => handleSendChatMessage(request._id)}
+                                disabled={submitting || !chatMessage.trim()}
+                                className="px-4 py-2 bg-emerald-500 text-neutral-950 rounded-xl font-bold flex items-center gap-2 disabled:opacity-50 hover:bg-emerald-400 transition-colors shadow-lg shadow-emerald-500/20"
+                              >
+                                <Send className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
                         {/* Action Buttons */}
-                        <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-neutral-800/50">
+                        <div className="flex flex-wrap items-center justify-between gap-4 pt-6 border-t border-neutral-800/50">
                           <div className="flex items-center gap-4">
                             <Link 
                               to={`${ROUTES.MATERIAL_DETAILS.replace(':id', request.material._id)}`}
