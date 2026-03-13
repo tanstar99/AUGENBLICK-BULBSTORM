@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import { generateAccessToken, generateRefreshToken, verifyToken } from "../utils/generateToken.js";
+import { normalizePhoneForStorage } from "../utils/phone.js";
 
 /**
  * @desc    Register a new user
@@ -48,12 +49,14 @@ export const register = async (req, res) => {
     const allowedRoles = ["buyer", "seller", "ngo", "logistics_partner"];
     const userRole = role && allowedRoles.includes(role) ? role : "buyer";
 
+    const normalizedPhone = phone ? normalizePhoneForStorage(phone) : undefined;
+
     // Create user (password hashing happens in User model pre-save hook)
     const user = await User.create({
       email: email.toLowerCase(),
       password,
       name,
-      phone: phone || undefined,
+      phone: normalizedPhone || undefined,
       role: userRole,
     });
 
@@ -270,6 +273,113 @@ export const getMe = async (req, res) => {
 };
 
 /**
+ * @desc    Update current user profile
+ * @route   PATCH /api/auth/me
+ * @access  Private
+ */
+export const updateMe = async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      phone,
+      avatar,
+      company,
+      location,
+    } = req.body;
+
+    const user = await User.findById(req.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    if (name !== undefined) {
+      user.name = String(name || "").trim();
+    }
+
+    if (email !== undefined) {
+      const nextEmail = String(email || "").trim().toLowerCase();
+
+      if (nextEmail && nextEmail !== user.email) {
+        const emailRegex = /^\S+@\S+\.\S+$/;
+        if (!emailRegex.test(nextEmail)) {
+          return res.status(400).json({
+            success: false,
+            message: "Please provide a valid email address.",
+          });
+        }
+
+        const existingUser = await User.findOne({ email: nextEmail, _id: { $ne: user._id } });
+        if (existingUser) {
+          return res.status(400).json({
+            success: false,
+            message: "An account with this email already exists.",
+          });
+        }
+
+        user.email = nextEmail;
+      }
+    }
+
+    if (phone !== undefined) {
+      const normalizedPhone = normalizePhoneForStorage(phone);
+      user.phone = normalizedPhone || undefined;
+    }
+
+    if (avatar !== undefined) {
+      user.avatar = avatar || null;
+    }
+
+    if (company !== undefined) {
+      user.businessDetails = {
+        ...(user.businessDetails || {}),
+        companyName: String(company || "").trim(),
+      };
+    }
+
+    if (location && typeof location === "object") {
+      user.address = {
+        ...(user.address || {}),
+        street: location.address !== undefined ? String(location.address || "").trim() : user.address?.street,
+        city: location.city !== undefined ? String(location.city || "").trim() : user.address?.city,
+        state: location.state !== undefined ? String(location.state || "").trim() : user.address?.state,
+        country: location.country !== undefined ? String(location.country || "").trim() : user.address?.country,
+        pincode: location.postalCode !== undefined ? String(location.postalCode || "").trim() : user.address?.pincode,
+      };
+    }
+
+    await user.save();
+
+    const updatedUser = await User.findById(user._id).select("-password -refreshToken");
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully.",
+      data: updatedUser,
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+
+    if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((e) => e.message);
+      return res.status(400).json({
+        success: false,
+        message: messages.join(", "),
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to update profile.",
+    });
+  }
+};
+
+/**
  * @desc    Refresh access token
  * @route   POST /api/auth/refresh-token
  * @access  Public (with refresh token)
@@ -457,6 +567,7 @@ export default {
   register,
   login,
   getMe,
+  updateMe,
   refreshToken,
   logout,
   updatePassword,

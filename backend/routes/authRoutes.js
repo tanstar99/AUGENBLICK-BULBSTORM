@@ -3,6 +3,7 @@ import {
   register,
   login,
   getMe,
+  updateMe,
   refreshToken,
   logout,
   updatePassword,
@@ -31,6 +32,13 @@ router.post("/login", login);
  * @access  Private
  */
 router.get("/me", authenticate, getMe);
+
+/**
+ * @route   PATCH /api/auth/me
+ * @desc    Update current user profile
+ * @access  Private
+ */
+router.patch("/me", authenticate, updateMe);
 
 /**
  * @route   POST /api/auth/refresh-token

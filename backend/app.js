@@ -15,6 +15,7 @@ import logisticsRoutes from "./routes/logisticsRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
 import imageStudioRoutes from "./routes/imageStudioRoutes.js";
+import whapiRoutes from "./routes/whapiRoutes.js";
 
 // Initialize Express app
 const app = express();
@@ -76,6 +77,7 @@ app.use("/api/logistics", logisticsRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/image-studio", imageStudioRoutes);
+app.use("/api/whapi", whapiRoutes);
 
 // Static serving for AI Image Studio 3D models
 const __filename_app = fileURLToPath(import.meta.url);

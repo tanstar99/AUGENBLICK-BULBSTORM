@@ -1,6 +1,6 @@
 flask
 sentence-transformers
-pinecone-client
+pinecone
 groq
 python-dotenv
 python-docx

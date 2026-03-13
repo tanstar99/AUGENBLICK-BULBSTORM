@@ -249,29 +249,68 @@ export const getUserImpact = async (req, res) => {
       .populate("material", "title category")
       .lean();
 
-    // Monthly breakdown
+    // Monthly breakdown (last 6 months, oldest -> newest)
+    const now = new Date();
+    const monthlyWindowStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+
     const monthlyImpact = await Transaction.aggregate([
       {
         $match: {
           $or: [{ supplier: userId }, { receiver: userId }],
           status: "completed",
-          completedAt: { $exists: true },
+        },
+      },
+      {
+        $addFields: {
+          impactDate: { $ifNull: ["$completedAt", "$createdAt"] },
+        },
+      },
+      {
+        $match: {
+          impactDate: { $gte: monthlyWindowStart },
         },
       },
       {
         $group: {
           _id: {
-            year: { $year: "$completedAt" },
-            month: { $month: "$completedAt" },
+            year: { $year: "$impactDate" },
+            month: { $month: "$impactDate" },
           },
           transactions: { $sum: 1 },
           wasteDiverted: { $sum: "$impactMetrics.landfillDiverted" },
           co2Saved: { $sum: "$impactMetrics.co2Saved" },
         },
       },
-      { $sort: { "_id.year": -1, "_id.month": -1 } },
-      { $limit: 12 },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
     ]);
+
+    const monthlyImpactMap = new Map(
+      monthlyImpact.map((entry) => [
+        `${entry._id.year}-${entry._id.month}`,
+        {
+          transactions: entry.transactions || 0,
+          wasteDivertedKg: Math.round((entry.wasteDiverted || 0) * 100) / 100,
+          co2SavedKg: Math.round((entry.co2Saved || 0) * 100) / 100,
+        },
+      ])
+    );
+
+    const monthlyBreakdown = [];
+    for (let offset = 5; offset >= 0; offset -= 1) {
+      const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const key = `${year}-${month}`;
+      const values = monthlyImpactMap.get(key);
+
+      monthlyBreakdown.push({
+        year,
+        month,
+        transactions: values?.transactions || 0,
+        wasteDivertedKg: values?.wasteDivertedKg || 0,
+        co2SavedKg: values?.co2SavedKg || 0,
+      });
+    }
 
     // Calculate ranking among users
     const userRanking = await User.aggregate([
@@ -311,13 +350,7 @@ export const getUserImpact = async (req, res) => {
           totalUsers: userRanking.length,
           percentile: Math.round((1 - userRank / userRanking.length) * 100),
         },
-        monthlyBreakdown: monthlyImpact.map((m) => ({
-          year: m._id.year,
-          month: m._id.month,
-          transactions: m.transactions,
-          wasteDivertedKg: Math.round(m.wasteDiverted * 100) / 100,
-          co2SavedKg: Math.round(m.co2Saved * 100) / 100,
-        })),
+        monthlyBreakdown,
         recentTransactions: completedTransactions.slice(0, 10).map((t) => ({
           id: t._id,
           material: t.material?.title,

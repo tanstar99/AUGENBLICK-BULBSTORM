@@ -9,6 +9,7 @@ import Notification from "./Notification.js";
 import Review from "./Review.js";
 import AnalyticsEvent from "./AnalyticsEvent.js";
 import AiConversation from "./AiConversation.js";
+import WhatsappSession from "./WhatsappSession.js";
 
 export {
   User,
@@ -21,6 +22,7 @@ export {
   Review,
   AnalyticsEvent,
   AiConversation,
+  WhatsappSession,
 };
 
 export default {
@@ -34,4 +36,5 @@ export default {
   Review,
   AnalyticsEvent,
   AiConversation,
+  WhatsappSession,
 };
