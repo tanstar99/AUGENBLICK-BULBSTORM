@@ -122,7 +122,7 @@ const ImpactPage: React.FC = () => {
                       
                       return (
                         <div key={i} className="flex-1 flex flex-col items-center gap-4 group">
-                          <div className="w-full relative">
+                          <div className="w-full h-44 relative flex items-end">
                             <motion.div 
                               initial={{ height: 0 }}
                               animate={{ height: `${height}%` }}
@@ -223,18 +223,6 @@ const ImpactPage: React.FC = () => {
             <div className="bg-emerald-500 p-8 rounded-[2rem] text-neutral-950 relative overflow-hidden group">
                <div className="absolute -right-10 -bottom-10 opacity-10 group-hover:scale-125 transition-transform duration-700">
                  <Users className="w-48 h-48" />
-               </div>
-               <h3 className="text-lg font-black uppercase tracking-tighter mb-4">Community Reach</h3>
-               <div className="space-y-4 relative z-10">
-                 <div>
-                   <p className="text-4xl font-black mb-1">12K+</p>
-                   <p className="text-xs font-bold uppercase opacity-80">Active Eco-Partners</p>
-                 </div>
-                 <div className="h-0.5 bg-neutral-950/20 w-1/2 rounded-full"></div>
-                 <div>
-                   <p className="text-2xl font-black mb-1">250 Tons</p>
-                   <p className="text-xs font-bold uppercase opacity-80">Total Waste Diverted</p>
-                 </div>
                </div>
             </div>
           </div>

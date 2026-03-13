@@ -348,7 +348,7 @@ const BuyerDashboardPage: React.FC = () => {
                     {material.distance && (
                       <span className="text-xs text-emerald-400 flex items-center gap-1">
                         <Navigation className="w-3 h-3" />
-                        {Number(material.distance).toFixed(1)} km
+                        {Number(material.distance).toFixed(1)} m
                       </span>
                     )}
                   </Link>

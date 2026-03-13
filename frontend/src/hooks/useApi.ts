@@ -41,7 +41,24 @@ function useFetch<T>(
     try {
       setError(null);
       const response = await fetchFn();
-      setData(response.data);
+
+      const payload = response.data as
+        | T
+        | {
+            success?: boolean;
+            data?: T;
+          };
+
+      if (
+        payload &&
+        typeof payload === "object" &&
+        "data" in payload &&
+        Object.prototype.hasOwnProperty.call(payload, "success")
+      ) {
+        setData((payload as { data?: T }).data ?? null);
+      } else {
+        setData(payload as T);
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "An error occurred";
       setError(message);

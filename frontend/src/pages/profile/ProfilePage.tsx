@@ -54,7 +54,8 @@ const ProfilePage: React.FC = () => {
     try {
       const result = await authService.updateProfile(formData);
       if (result.success) {
-        dispatch(updateUser(result.data));
+        const updatedUser = result.data?.user || result.data;
+        dispatch(updateUser(updatedUser));
         setIsEditing(false);
       } else {
         alert(result.message || "Failed to update profile");
